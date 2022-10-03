@@ -1,5 +1,4 @@
 use std::io::stdin;
-
 use yaku_checker::ReadyTileSet;
 
 fn main() {
@@ -10,6 +9,6 @@ fn main() {
         input.clear();
         stdin().read_line(&mut input).unwrap();
         let tiles = tiles.draw(input.trim().parse().unwrap());
-        println!("{:?}", tiles.yaku())
+        println!("{:?}", tiles.yakus())
     }
 }

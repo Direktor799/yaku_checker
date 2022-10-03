@@ -1,15 +1,14 @@
-use std::{fmt::Display, str::FromStr};
-
-use crate::{full_set::FullTileSet, tile::Tile};
+use crate::{full_set::FullTileSet, tile::Tile, yaku::Han, Yaku, ALL_TILES};
 use anyhow::{anyhow, Error, Result};
 use once_cell::sync::Lazy;
 use regex::Regex;
+use std::{collections::VecDeque, fmt::Display, str::FromStr};
 
 static TILESET_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"((ton|nan|shaa|pei|haku|chun|hatsu)|([1-9]+)([psm]))(\d+)?").unwrap()
 });
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ReadyTileSet {
     pub(crate) tiles: Vec<Tile>,
 }
@@ -57,8 +56,30 @@ impl Display for ReadyTileSet {
 }
 
 impl ReadyTileSet {
-    pub fn shanten(&self) -> u8 {
-        todo!()
+    /// a very heavy search, return (shanten_num, Vec<(effective_income, yakus, han)>)
+    pub fn shanten(&self) -> (u8, Vec<(Tile, Vec<Yaku>, Han)>) {
+        let mut ret = vec![];
+        let mut shanten_num = 6;
+        let mut search_queue = VecDeque::new();
+        search_queue.push_back((0u8, self.clone()));
+        while let Some((depth, ready_set)) = search_queue.pop_front() {
+            if depth > shanten_num {
+                break;
+            }
+            for tile in &*ALL_TILES {
+                let full_set = ready_set.clone().draw(tile.clone());
+                if let Some((yakus, han)) = full_set.yakus() {
+                    shanten_num = depth;
+                    ret.push((tile.clone(), yakus, han));
+                } else {
+                    for discard_tile in &full_set.tiles {
+                        let next_ready_set = full_set.clone().discard(discard_tile).unwrap();
+                        search_queue.push_back((depth + 1, next_ready_set));
+                    }
+                }
+            }
+        }
+        (shanten_num, ret)
     }
 
     pub fn draw(self, tile: Tile) -> FullTileSet {

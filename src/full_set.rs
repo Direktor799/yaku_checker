@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, vec};
 
 use super::ready_set::ReadyTileSet;
 use crate::{
@@ -8,18 +8,22 @@ use crate::{
 };
 use anyhow::{anyhow, Result};
 
+#[derive(Debug, Clone)]
 pub struct FullTileSet {
     pub(crate) tiles: Vec<Tile>,
     pub(crate) drawed_index: usize,
 }
 
 impl FullTileSet {
-    pub fn yaku(&self) -> Option<(Vec<Yaku>, Han)> {
-        let mut possible_yakus = self
-            .patterns()
+    pub fn yakus(&self) -> Option<(Vec<Yaku>, Han)> {
+        let patterns = self.patterns();
+        let mut possible_yakus = patterns
             .iter()
-            .map(|pattern| pattern.yaku())
+            .map(|pattern| pattern.yakus())
             .collect::<Vec<_>>();
+        if !patterns.is_empty() {
+            possible_yakus.push(vec![]);
+        }
         possible_yakus
             .sort_by_key(|yakus| yakus.iter().map(|yaku| yaku.clone().into()).sum::<Han>());
         possible_yakus.last().map(|v| {

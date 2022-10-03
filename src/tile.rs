@@ -5,11 +5,14 @@ use std::{
     str::FromStr,
 };
 
-const ALL_TILES: [&str; 34] = [
+const ALL_TILE_STRS: [&str; 34] = [
     "1m", "2m", "3m", "4m", "5m", "6m", "7m", "8m", "9m", "1s", "2s", "3s", "4s", "5s", "6s", "7s",
     "8s", "9s", "1p", "2p", "3p", "4p", "5p", "6p", "7p", "8p", "9p", "ton", "nan", "shaa", "pei",
     "haku", "hatsu", "chun",
 ];
+
+pub static ALL_TILES: Lazy<Vec<Tile>> =
+    Lazy::new(|| ALL_TILE_STRS.iter().map(|s| s.parse().unwrap()).collect());
 
 pub static T_1M: Lazy<Tile> = Lazy::new(|| "1m".parse().unwrap());
 pub static T_2M: Lazy<Tile> = Lazy::new(|| "2m".parse().unwrap());
@@ -57,11 +60,11 @@ impl PartialOrd for Tile {
 
 impl Ord for Tile {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        let self_index = ALL_TILES
+        let self_index = ALL_TILE_STRS
             .iter()
             .position(|&s| s == self.to_string())
             .unwrap();
-        let other_index = ALL_TILES
+        let other_index = ALL_TILE_STRS
             .iter()
             .position(|&s| s == other.to_string())
             .unwrap();
@@ -147,7 +150,7 @@ mod tests {
 
     #[test]
     fn from_str() -> Result<()> {
-        for tile_str in ALL_TILES {
+        for tile_str in ALL_TILE_STRS {
             let tile = Tile::from_str(tile_str)?;
             assert_eq!(tile.to_string(), tile_str);
         }
@@ -160,7 +163,7 @@ mod tests {
 
     #[test]
     fn tile_ord() {
-        let mut v = ALL_TILES
+        let mut v = ALL_TILE_STRS
             .iter()
             .rev()
             .map(|s| Tile::from_str(s).unwrap())
@@ -168,7 +171,7 @@ mod tests {
         v.sort();
         assert_eq!(
             v.iter().map(|tile| tile.to_string()).collect::<Vec<_>>(),
-            ALL_TILES
+            ALL_TILE_STRS
         );
     }
 }

@@ -18,7 +18,7 @@ impl TilePattern {
         Self { pattern, last_draw }
     }
 
-    pub fn yaku(&self) -> Vec<Yaku> {
+    pub fn yakus(&self) -> Vec<Yaku> {
         let mut ret = vec![];
 
         if self.is_suuankoutanki() {
