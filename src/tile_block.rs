@@ -1,7 +1,7 @@
 use crate::{Tile, T_INVALID};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct TileBlock {
+pub struct TileBlock {
     tiles: [Tile; 3],
     len: u8,
 }

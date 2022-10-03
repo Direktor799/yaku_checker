@@ -2,13 +2,13 @@ use crate::{tile::Tile, tile_block::TileBlock, yaku::Yaku, T_2S, T_3S, T_4S, T_6
 use std::collections::HashMap;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct TilePattern {
+pub struct TilePattern {
     /// could be
     /// [1] * 14            kokushi
     /// [2] * 7             chiitoi
     /// [3] * 4 + [2] * 1   common
-    pub(crate) pattern: Vec<TileBlock>,
-    pub(crate) last_draw: Tile,
+    pub pattern: Vec<TileBlock>,
+    pub last_draw: Tile,
 }
 
 impl TilePattern {
@@ -19,7 +19,7 @@ impl TilePattern {
     }
 
     pub fn yakus(&self) -> Vec<Yaku> {
-        let mut ret = vec![];
+        let mut ret = Vec::with_capacity(5);
 
         if self.is_suuankoutanki() {
             ret.push(Yaku::Suuankoutanki);
@@ -147,7 +147,7 @@ impl TilePattern {
     }
 
     fn have_yakuhai_sangenpai(&self) -> Vec<Tile> {
-        let mut ans = vec![];
+        let mut ans = Vec::with_capacity(3);
         if self.pattern.len() == 5 {
             ans = self
                 .pattern
@@ -189,7 +189,7 @@ impl TilePattern {
 
     fn is_iipeikou(&self) -> bool {
         if self.pattern.len() == 5 {
-            let mut seq_starts = vec![];
+            let mut seq_starts = Vec::with_capacity(4);
             for block in &self.pattern {
                 if let Some(tile) = block.sequence() {
                     seq_starts.push(tile);
@@ -355,7 +355,7 @@ impl TilePattern {
 
     fn is_ryanpeikou(&self) -> bool {
         if self.pattern.len() == 5 {
-            let mut seq_starts = vec![];
+            let mut seq_starts = Vec::with_capacity(4);
             for block in &self.pattern {
                 if let Some(tile) = block.sequence() {
                     seq_starts.push(tile);
