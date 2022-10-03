@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Error, Result};
+use once_cell::sync::Lazy;
 use std::{
     fmt::{Debug, Display},
     str::FromStr,
@@ -7,8 +8,43 @@ use std::{
 const ALL_TILES: [&str; 34] = [
     "1m", "2m", "3m", "4m", "5m", "6m", "7m", "8m", "9m", "1s", "2s", "3s", "4s", "5s", "6s", "7s",
     "8s", "9s", "1p", "2p", "3p", "4p", "5p", "6p", "7p", "8p", "9p", "ton", "nan", "shaa", "pei",
-    "haku", "chun", "hatsu",
+    "haku", "hatsu", "chun",
 ];
+
+pub static T_1M: Lazy<Tile> = Lazy::new(|| "1m".parse().unwrap());
+pub static T_2M: Lazy<Tile> = Lazy::new(|| "2m".parse().unwrap());
+pub static T_3M: Lazy<Tile> = Lazy::new(|| "3m".parse().unwrap());
+pub static T_4M: Lazy<Tile> = Lazy::new(|| "4m".parse().unwrap());
+pub static T_5M: Lazy<Tile> = Lazy::new(|| "5m".parse().unwrap());
+pub static T_6M: Lazy<Tile> = Lazy::new(|| "6m".parse().unwrap());
+pub static T_7M: Lazy<Tile> = Lazy::new(|| "7m".parse().unwrap());
+pub static T_8M: Lazy<Tile> = Lazy::new(|| "8m".parse().unwrap());
+pub static T_9M: Lazy<Tile> = Lazy::new(|| "9m".parse().unwrap());
+pub static T_1S: Lazy<Tile> = Lazy::new(|| "1s".parse().unwrap());
+pub static T_2S: Lazy<Tile> = Lazy::new(|| "2s".parse().unwrap());
+pub static T_3S: Lazy<Tile> = Lazy::new(|| "3s".parse().unwrap());
+pub static T_4S: Lazy<Tile> = Lazy::new(|| "4s".parse().unwrap());
+pub static T_5S: Lazy<Tile> = Lazy::new(|| "5s".parse().unwrap());
+pub static T_6S: Lazy<Tile> = Lazy::new(|| "6s".parse().unwrap());
+pub static T_7S: Lazy<Tile> = Lazy::new(|| "7s".parse().unwrap());
+pub static T_8S: Lazy<Tile> = Lazy::new(|| "8s".parse().unwrap());
+pub static T_9S: Lazy<Tile> = Lazy::new(|| "9s".parse().unwrap());
+pub static T_1P: Lazy<Tile> = Lazy::new(|| "1p".parse().unwrap());
+pub static T_2P: Lazy<Tile> = Lazy::new(|| "2p".parse().unwrap());
+pub static T_3P: Lazy<Tile> = Lazy::new(|| "3p".parse().unwrap());
+pub static T_4P: Lazy<Tile> = Lazy::new(|| "4p".parse().unwrap());
+pub static T_5P: Lazy<Tile> = Lazy::new(|| "5p".parse().unwrap());
+pub static T_6P: Lazy<Tile> = Lazy::new(|| "6p".parse().unwrap());
+pub static T_7P: Lazy<Tile> = Lazy::new(|| "7p".parse().unwrap());
+pub static T_8P: Lazy<Tile> = Lazy::new(|| "8p".parse().unwrap());
+pub static T_9P: Lazy<Tile> = Lazy::new(|| "9p".parse().unwrap());
+pub static T_TON: Lazy<Tile> = Lazy::new(|| "ton".parse().unwrap());
+pub static T_NAN: Lazy<Tile> = Lazy::new(|| "nan".parse().unwrap());
+pub static T_SHAA: Lazy<Tile> = Lazy::new(|| "shaa".parse().unwrap());
+pub static T_PEI: Lazy<Tile> = Lazy::new(|| "pei".parse().unwrap());
+pub static T_HAKU: Lazy<Tile> = Lazy::new(|| "haku".parse().unwrap());
+pub static T_HATSU: Lazy<Tile> = Lazy::new(|| "hatsu".parse().unwrap());
+pub static T_CHUN: Lazy<Tile> = Lazy::new(|| "chun".parse().unwrap());
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct Tile(String, u8);
@@ -71,7 +107,7 @@ impl Display for Tile {
 
 impl Debug for Tile {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        <Tile as Display>::fmt(&self, f)
+        <Tile as Display>::fmt(self, f)
     }
 }
 
@@ -88,6 +124,14 @@ impl Tile {
         !self.is_honor()
     }
 
+    pub fn is_dragon(&self) -> bool {
+        *self == *T_HAKU || *self == *T_HATSU || *self == *T_CHUN
+    }
+
+    pub fn is_wind(&self) -> bool {
+        self.is_honor() && !self.is_dragon()
+    }
+
     pub fn tile_type(&self) -> &str {
         &self.0
     }
@@ -102,7 +146,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_tile_from_str() -> Result<()> {
+    fn from_str() -> Result<()> {
         for tile_str in ALL_TILES {
             let tile = Tile::from_str(tile_str)?;
             assert_eq!(tile.to_string(), tile_str);
@@ -115,7 +159,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tile_sort() {
+    fn tile_ord() {
         let mut v = ALL_TILES
             .iter()
             .rev()
@@ -126,29 +170,5 @@ mod tests {
             v.iter().map(|tile| tile.to_string()).collect::<Vec<_>>(),
             ALL_TILES
         );
-    }
-
-    #[test]
-    fn test_tile_is_honor() -> Result<()> {
-        for tile_str in ALL_TILES {
-            let tile = Tile::from_str(tile_str)?;
-            assert_eq!(tile.is_honor(), !tile_str.as_bytes()[0].is_ascii_digit());
-        }
-        Ok(())
-    }
-
-    #[test]
-    fn test_tile_is_terminal() -> Result<()> {
-        let count = ALL_TILES
-            .iter()
-            .filter_map(|tile_str| {
-                Tile::from_str(tile_str)
-                    .unwrap()
-                    .is_terminal()
-                    .then_some(())
-            })
-            .count();
-        assert_eq!(count, 6);
-        Ok(())
     }
 }

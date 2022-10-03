@@ -1,34 +1,33 @@
 //! Closed hand only
 //! No Chii, Pon, Kan(opened or closed)
 
+mod full_set;
+mod ready_set;
 mod tile;
 mod tile_pattern;
-mod tile_set;
 mod yaku;
 
-pub use tile_set::FullTileSet;
+pub use ready_set::ReadyTileSet;
+pub use tile::*;
+
+// TODO: change visablity
 
 #[cfg(test)]
 mod tests {
-    // use std::str::FromStr;
+    use super::*;
 
-    // use crate::{tile::Tile, tile_set::ReadyTileSet, yaku::Yaku};
-
-    // #[test]
-    // fn test() {
-    //     let tiles = ReadyTileSet::from_str("123m 123s 123p haku3 ton").unwrap();
-    //     assert_eq!(tiles.shanten(), 1);
-    //     let tiles = tiles.draw(Tile::from_str("pei").unwrap());
-    //     assert!(tiles.yaku().is_none());
-    //     let tiles = tiles.discard(&Tile::from_str("ton").unwrap()).unwrap();
-    //     assert_eq!(tiles.shanten(), 1);
-    //     let tiles = tiles.draw(Tile::from_str("pei").unwrap());
-    //     assert_eq!(
-    //         tiles.yaku().unwrap(),
-    //         vec![
-    //             Yaku::YakuhaiSangenpai(Tile::from_str("haku").unwrap()),
-    //             Yaku::Sanshokudoujun
-    //         ]
-    //     );
-    // }
+    #[test]
+    fn test() {
+        let tiles = "123m 123s 123p haku3 ton".parse::<ReadyTileSet>().unwrap();
+        // assert_eq!(tiles.shanten(), 1);
+        let tiles = tiles.draw(T_PEI.clone());
+        assert!(tiles.yaku().is_none());
+        let tiles = tiles.discard(&T_TON).unwrap();
+        // assert_eq!(tiles.shanten(), 1);
+        let _tiles = tiles.draw(T_PEI.clone());
+        // assert_eq!(
+        //     tiles.yaku().unwrap(),
+        //     vec![Yaku::YakuhaiSangenpai(T_HAKU), Yaku::Sanshokudoujun]
+        // );
+    }
 }

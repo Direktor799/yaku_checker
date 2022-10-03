@@ -1,11 +1,9 @@
 use std::{fmt::Display, str::FromStr};
 
-use crate::tile::Tile;
+use crate::{full_set::FullTileSet, tile::Tile};
 use anyhow::{anyhow, Error, Result};
 use once_cell::sync::Lazy;
 use regex::Regex;
-
-use super::FullTileSet;
 
 static TILESET_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"((ton|nan|shaa|pei|haku|chun|hatsu)|([1-9]+)([psm]))(\d+)?").unwrap()
@@ -13,7 +11,7 @@ static TILESET_REGEX: Lazy<Regex> = Lazy::new(|| {
 
 #[derive(Debug)]
 pub struct ReadyTileSet {
-    pub(super) tiles: Vec<Tile>,
+    pub(crate) tiles: Vec<Tile>,
 }
 
 impl FromStr for ReadyTileSet {
@@ -83,7 +81,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_ready_tileset_from_str() {
+    fn from_str() {
         assert_eq!(
             ReadyTileSet::from_str("123p 4m3 5s1 6s haku1 chun2 nan1 shaa")
                 .unwrap()
@@ -107,7 +105,7 @@ mod tests {
             ReadyTileSet::from_str("hatsu12 haku0 chun")
                 .unwrap()
                 .to_string(),
-            "chun hatsu hatsu hatsu hatsu hatsu hatsu hatsu hatsu hatsu hatsu hatsu hatsu"
+            "hatsu hatsu hatsu hatsu hatsu hatsu hatsu hatsu hatsu hatsu hatsu hatsu chun"
         );
     }
 }
