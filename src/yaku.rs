@@ -1,7 +1,7 @@
 use crate::tile::Tile;
 use std::{iter::Sum, ops::Add};
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Yaku {
     // /// 立直（门前清限定）
     // Riichi,

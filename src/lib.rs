@@ -4,6 +4,7 @@
 mod full_set;
 mod ready_set;
 mod tile;
+mod tile_block;
 mod tile_pattern;
 mod yaku;
 

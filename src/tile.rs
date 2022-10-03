@@ -1,109 +1,132 @@
 use anyhow::{anyhow, Error, Result};
-use once_cell::sync::Lazy;
 use std::{
     fmt::{Debug, Display},
     str::FromStr,
 };
 
-const ALL_TILE_STRS: [&str; 34] = [
-    "1m", "2m", "3m", "4m", "5m", "6m", "7m", "8m", "9m", "1s", "2s", "3s", "4s", "5s", "6s", "7s",
-    "8s", "9s", "1p", "2p", "3p", "4p", "5p", "6p", "7p", "8p", "9p", "ton", "nan", "shaa", "pei",
-    "haku", "hatsu", "chun",
+pub const ALL_TILES: [Tile; 35] = [
+    Tile(0x01),
+    Tile(0x02),
+    Tile(0x03),
+    Tile(0x04),
+    Tile(0x05),
+    Tile(0x06),
+    Tile(0x07),
+    Tile(0x08),
+    Tile(0x09),
+    Tile(0x11),
+    Tile(0x12),
+    Tile(0x13),
+    Tile(0x14),
+    Tile(0x15),
+    Tile(0x16),
+    Tile(0x17),
+    Tile(0x18),
+    Tile(0x19),
+    Tile(0x21),
+    Tile(0x22),
+    Tile(0x23),
+    Tile(0x24),
+    Tile(0x25),
+    Tile(0x26),
+    Tile(0x27),
+    Tile(0x28),
+    Tile(0x29),
+    Tile(0x30),
+    Tile(0x40),
+    Tile(0x50),
+    Tile(0x60),
+    Tile(0x70),
+    Tile(0x80),
+    Tile(0x90),
+    Tile(0xff),
 ];
 
-pub static ALL_TILES: Lazy<Vec<Tile>> =
-    Lazy::new(|| ALL_TILE_STRS.iter().map(|s| s.parse().unwrap()).collect());
+pub const T_1M: Tile = ALL_TILES[0];
+pub const T_2M: Tile = ALL_TILES[1];
+pub const T_3M: Tile = ALL_TILES[2];
+pub const T_4M: Tile = ALL_TILES[3];
+pub const T_5M: Tile = ALL_TILES[4];
+pub const T_6M: Tile = ALL_TILES[5];
+pub const T_7M: Tile = ALL_TILES[6];
+pub const T_8M: Tile = ALL_TILES[7];
+pub const T_9M: Tile = ALL_TILES[8];
+pub const T_1P: Tile = ALL_TILES[9];
+pub const T_2P: Tile = ALL_TILES[10];
+pub const T_3P: Tile = ALL_TILES[11];
+pub const T_4P: Tile = ALL_TILES[12];
+pub const T_5P: Tile = ALL_TILES[13];
+pub const T_6P: Tile = ALL_TILES[14];
+pub const T_7P: Tile = ALL_TILES[15];
+pub const T_8P: Tile = ALL_TILES[16];
+pub const T_9P: Tile = ALL_TILES[17];
+pub const T_1S: Tile = ALL_TILES[18];
+pub const T_2S: Tile = ALL_TILES[19];
+pub const T_3S: Tile = ALL_TILES[20];
+pub const T_4S: Tile = ALL_TILES[21];
+pub const T_5S: Tile = ALL_TILES[22];
+pub const T_6S: Tile = ALL_TILES[23];
+pub const T_7S: Tile = ALL_TILES[24];
+pub const T_8S: Tile = ALL_TILES[25];
+pub const T_9S: Tile = ALL_TILES[26];
+pub const T_TON: Tile = ALL_TILES[27];
+pub const T_NAN: Tile = ALL_TILES[28];
+pub const T_SHAA: Tile = ALL_TILES[29];
+pub const T_PEI: Tile = ALL_TILES[30];
+pub const T_HAKU: Tile = ALL_TILES[31];
+pub const T_HATSU: Tile = ALL_TILES[32];
+pub const T_CHUN: Tile = ALL_TILES[33];
+pub const T_INVALID: Tile = ALL_TILES[34];
 
-pub static T_1M: Lazy<Tile> = Lazy::new(|| "1m".parse().unwrap());
-pub static T_2M: Lazy<Tile> = Lazy::new(|| "2m".parse().unwrap());
-pub static T_3M: Lazy<Tile> = Lazy::new(|| "3m".parse().unwrap());
-pub static T_4M: Lazy<Tile> = Lazy::new(|| "4m".parse().unwrap());
-pub static T_5M: Lazy<Tile> = Lazy::new(|| "5m".parse().unwrap());
-pub static T_6M: Lazy<Tile> = Lazy::new(|| "6m".parse().unwrap());
-pub static T_7M: Lazy<Tile> = Lazy::new(|| "7m".parse().unwrap());
-pub static T_8M: Lazy<Tile> = Lazy::new(|| "8m".parse().unwrap());
-pub static T_9M: Lazy<Tile> = Lazy::new(|| "9m".parse().unwrap());
-pub static T_1S: Lazy<Tile> = Lazy::new(|| "1s".parse().unwrap());
-pub static T_2S: Lazy<Tile> = Lazy::new(|| "2s".parse().unwrap());
-pub static T_3S: Lazy<Tile> = Lazy::new(|| "3s".parse().unwrap());
-pub static T_4S: Lazy<Tile> = Lazy::new(|| "4s".parse().unwrap());
-pub static T_5S: Lazy<Tile> = Lazy::new(|| "5s".parse().unwrap());
-pub static T_6S: Lazy<Tile> = Lazy::new(|| "6s".parse().unwrap());
-pub static T_7S: Lazy<Tile> = Lazy::new(|| "7s".parse().unwrap());
-pub static T_8S: Lazy<Tile> = Lazy::new(|| "8s".parse().unwrap());
-pub static T_9S: Lazy<Tile> = Lazy::new(|| "9s".parse().unwrap());
-pub static T_1P: Lazy<Tile> = Lazy::new(|| "1p".parse().unwrap());
-pub static T_2P: Lazy<Tile> = Lazy::new(|| "2p".parse().unwrap());
-pub static T_3P: Lazy<Tile> = Lazy::new(|| "3p".parse().unwrap());
-pub static T_4P: Lazy<Tile> = Lazy::new(|| "4p".parse().unwrap());
-pub static T_5P: Lazy<Tile> = Lazy::new(|| "5p".parse().unwrap());
-pub static T_6P: Lazy<Tile> = Lazy::new(|| "6p".parse().unwrap());
-pub static T_7P: Lazy<Tile> = Lazy::new(|| "7p".parse().unwrap());
-pub static T_8P: Lazy<Tile> = Lazy::new(|| "8p".parse().unwrap());
-pub static T_9P: Lazy<Tile> = Lazy::new(|| "9p".parse().unwrap());
-pub static T_TON: Lazy<Tile> = Lazy::new(|| "ton".parse().unwrap());
-pub static T_NAN: Lazy<Tile> = Lazy::new(|| "nan".parse().unwrap());
-pub static T_SHAA: Lazy<Tile> = Lazy::new(|| "shaa".parse().unwrap());
-pub static T_PEI: Lazy<Tile> = Lazy::new(|| "pei".parse().unwrap());
-pub static T_HAKU: Lazy<Tile> = Lazy::new(|| "haku".parse().unwrap());
-pub static T_HATSU: Lazy<Tile> = Lazy::new(|| "hatsu".parse().unwrap());
-pub static T_CHUN: Lazy<Tile> = Lazy::new(|| "chun".parse().unwrap());
-
-#[derive(Clone, PartialEq, Eq)]
-pub struct Tile(String, u8);
-
-impl PartialOrd for Tile {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for Tile {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        let self_index = ALL_TILE_STRS
-            .iter()
-            .position(|&s| s == self.to_string())
-            .unwrap();
-        let other_index = ALL_TILE_STRS
-            .iter()
-            .position(|&s| s == other.to_string())
-            .unwrap();
-        self_index.cmp(&other_index)
-    }
-}
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Tile(u8);
 
 impl FromStr for Tile {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
-        match s {
-            "ton" | "nan" | "shaa" | "pei" | "haku" | "hatsu" | "chun" => {
-                Ok(Tile(s.to_string(), 0))
-            }
-            _ => {
-                let chars = s.chars().collect::<Vec<_>>();
-                if chars.len() == 2 && chars[0] >= '1' && chars[0] <= '9' {
-                    match chars[1] {
-                        'p' | 's' | 'm' => Ok(Tile(
-                            chars[1].to_string(),
-                            chars[0].to_digit(10).unwrap() as u8,
-                        )),
-                        _ => Err(anyhow!("not in any numbered suit")),
-                    }
-                } else {
-                    Err(anyhow!("\"{}\" is not a tile", s))
-                }
-            }
+        if s.len() < 2 {
+            return Err(anyhow!("\"{}\" is too short to be a tile", s));
         }
+
+        let bytes = s.as_bytes();
+        let res = if bytes[0] >= b'1' && bytes[0] <= b'9' {
+            (match bytes[1] {
+                b'm' => 0,
+                b'p' => 1,
+                b's' => 2,
+                _ => return Err(anyhow!("\"{}\" is numbered but not m/s/p", s)),
+            } << 4)
+                + bytes[0] as u8
+                - b'0'
+        } else {
+            (match s {
+                "ton" => 3,
+                "nan" => 4,
+                "shaa" => 5,
+                "pei" => 6,
+                "haku" => 7,
+                "hatsu" => 8,
+                "chun" => 9,
+                _ => return Err(anyhow!("\"{}\" is not a tile", s)),
+            }) << 4
+        };
+        Ok(Tile(res))
     }
 }
 
 impl Display for Tile {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.1 == 0 {
-            write!(f, "{}", self.0)
+        const HIGH_BITS: [&str; 10] = [
+            "m", "p", "s", "ton", "nan", "shaa", "pei", "haku", "hatsu", "chun",
+        ];
+
+        if *self == T_INVALID {
+            write!(f, "INVALID")
+        } else if self.0 & 0xf == 0 {
+            write!(f, "{}", HIGH_BITS[(self.0 >> 4) as usize])
         } else {
-            write!(f, "{}{}", self.1, self.0)
+            write!(f, "{}{}", self.0 & 0xf, HIGH_BITS[(self.0 >> 4) as usize])
         }
     }
 }
@@ -116,11 +139,11 @@ impl Debug for Tile {
 
 impl Tile {
     pub fn is_honor(&self) -> bool {
-        self.1 == 0
+        self.0 & 0xf == 0
     }
 
     pub fn is_terminal(&self) -> bool {
-        self.1 == 1 || self.1 == 9
+        self.0 & 0xf == 1 || self.0 & 0xf == 9
     }
 
     pub fn is_numbered(&self) -> bool {
@@ -128,25 +151,31 @@ impl Tile {
     }
 
     pub fn is_dragon(&self) -> bool {
-        *self == *T_HAKU || *self == *T_HATSU || *self == *T_CHUN
+        *self == T_HAKU || *self == T_HATSU || *self == T_CHUN
     }
 
     pub fn is_wind(&self) -> bool {
         self.is_honor() && !self.is_dragon()
     }
 
-    pub fn tile_type(&self) -> &str {
-        &self.0
+    pub fn tile_type(&self) -> u8 {
+        self.0 >> 4
     }
 
     pub fn number(&self) -> u8 {
-        self.1
+        self.0 & 0xf
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const ALL_TILE_STRS: [&str; 34] = [
+        "1m", "2m", "3m", "4m", "5m", "6m", "7m", "8m", "9m", "1p", "2p", "3p", "4p", "5p", "6p",
+        "7p", "8p", "9p", "1s", "2s", "3s", "4s", "5s", "6s", "7s", "8s", "9s", "ton", "nan",
+        "shaa", "pei", "haku", "hatsu", "chun",
+    ];
 
     #[test]
     fn from_str() -> Result<()> {

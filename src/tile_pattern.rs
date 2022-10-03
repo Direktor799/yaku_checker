@@ -1,4 +1,4 @@
-use crate::{tile::Tile, yaku::Yaku, T_2S, T_3S, T_4S, T_6S, T_8S, T_HATSU};
+use crate::{tile::Tile, tile_block::TileBlock, yaku::Yaku, T_2S, T_3S, T_4S, T_6S, T_8S, T_HATSU};
 use std::collections::HashMap;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -13,7 +13,7 @@ pub(crate) struct TilePattern {
 
 impl TilePattern {
     pub fn new(pattern: Vec<TileBlock>, last_draw: Tile) -> Self {
-        assert_eq!(pattern.iter().map(|block| block.0.len()).sum::<usize>(), 14);
+        assert_eq!(pattern.iter().map(|block| block.len()).sum::<u8>(), 14);
         assert!(pattern.len() == 5 || pattern.len() == 7 || pattern.len() == 14);
         Self { pattern, last_draw }
     }
@@ -192,7 +192,7 @@ impl TilePattern {
             let mut seq_starts = vec![];
             for block in &self.pattern {
                 if let Some(tile) = block.sequence() {
-                    seq_starts.push(tile.clone());
+                    seq_starts.push(tile);
                 }
             }
             seq_starts.sort();
@@ -358,7 +358,7 @@ impl TilePattern {
             let mut seq_starts = vec![];
             for block in &self.pattern {
                 if let Some(tile) = block.sequence() {
-                    seq_starts.push(tile.clone());
+                    seq_starts.push(tile);
                 }
             }
             seq_starts.sort();
@@ -439,9 +439,9 @@ impl TilePattern {
             .iter()
             .flat_map(|block| block.tiles())
             .all(|tile| {
-                [&T_2S, &T_3S, &T_4S, &T_6S, &T_8S, &T_HATSU]
+                [T_2S, T_3S, T_4S, T_6S, T_8S, T_HATSU]
                     .into_iter()
-                    .any(|t| **t == *tile)
+                    .any(|t| t == *tile)
             })
     }
 
@@ -516,10 +516,9 @@ impl TilePattern {
 
     fn is_kokushimusou13(&self) -> bool {
         self.is_kokushimusou()
-            && self
-                .pattern
-                .windows(2)
-                .any(|pair| pair[0].0[0] == pair[1].0[0] && pair[0].0[0] == self.last_draw)
+            && self.pattern.windows(2).any(|pair| {
+                pair[0].tiles()[0] == pair[1].tiles()[0] && pair[0].tiles()[0] == self.last_draw
+            })
     }
 
     fn is_junseichuurenpoutou(&self) -> bool {
@@ -552,56 +551,18 @@ impl TilePattern {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct TileBlock(Vec<Tile>);
-
-impl TileBlock {
-    pub fn new(tiles: Vec<Tile>) -> Self {
-        TileBlock(tiles)
-    }
-
-    pub fn triplet(&self) -> Option<Tile> {
-        if self.0.len() == 3 && self.0[0] == self.0[1] && self.0[0] == self.0[2] {
-            Some(self.0[0].clone())
-        } else {
-            None
-        }
-    }
-
-    pub fn sequence(&self) -> Option<Tile> {
-        if self.0.len() == 3
-            && self.0[0].tile_type() == self.0[1].tile_type()
-            && self.0[0].tile_type() == self.0[2].tile_type()
-            && self.0[0].number() + 1 == self.0[1].number()
-            && self.0[0].number() + 2 == self.0[2].number()
-        {
-            Some(self.0[0].clone())
-        } else {
-            None
-        }
-    }
-
-    pub fn pair(&self) -> Option<Tile> {
-        if self.0.len() == 2 && self.0[0] == self.0[1] {
-            Some(self.0[0].clone())
-        } else {
-            None
-        }
-    }
-
-    pub fn tiles(&self) -> &Vec<Tile> {
-        &self.0
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use crate::tile_block::TileBlock;
+
     use super::*;
 
     fn build_pattern(pattern: Vec<Vec<&str>>, last_draw: &str) -> TilePattern {
         let pattern = pattern
             .iter()
-            .map(|block| TileBlock::new(block.iter().map(|s| s.parse().unwrap()).collect()))
+            .map(|block| {
+                TileBlock::new(&block.iter().map(|s| s.parse().unwrap()).collect::<Vec<_>>())
+            })
             .collect();
         let last_draw = last_draw.parse().unwrap();
         TilePattern { pattern, last_draw }
@@ -640,7 +601,7 @@ mod tests {
             vec!["chun", "chun"],
         ];
         let pattern = build_pattern(tileset, "3p");
-        assert_eq!(pattern.have_yakuhai_sangenpai(), vec![T_HATSU.clone()]);
+        assert_eq!(pattern.have_yakuhai_sangenpai(), vec![T_HATSU]);
 
         let tileset = vec![
             vec!["2p", "2p", "2p"],

@@ -1,4 +1,4 @@
-use crate::{full_set::FullTileSet, tile::Tile, yaku::Han, Yaku, ALL_TILES};
+use crate::{full_set::FullTileSet, tile::Tile, yaku::Han, Yaku, ALL_TILES, T_INVALID};
 use anyhow::{anyhow, Error, Result};
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -8,16 +8,16 @@ static TILESET_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"((ton|nan|shaa|pei|haku|chun|hatsu)|([1-9]+)([psm]))(\d+)?").unwrap()
 });
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct ReadyTileSet {
-    pub(crate) tiles: Vec<Tile>,
+    pub(crate) tiles: [Tile; 14],
 }
 
 impl FromStr for ReadyTileSet {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self> {
-        let mut tiles = vec![];
+        let mut tiles = Vec::with_capacity(14);
         for cap in TILESET_REGEX.captures_iter(s) {
             let num = cap
                 .get(5)
@@ -38,7 +38,10 @@ impl FromStr for ReadyTileSet {
             Err(anyhow!("wrong number of tiles: {}", tiles.len()))
         } else {
             tiles.sort();
-            Ok(ReadyTileSet { tiles })
+            tiles.push(T_INVALID);
+            Ok(ReadyTileSet {
+                tiles: tiles.try_into().unwrap(),
+            })
         }
     }
 }
@@ -48,6 +51,7 @@ impl Display for ReadyTileSet {
         let text = self
             .tiles
             .iter()
+            .take(13)
             .map(|tile| tile.to_string())
             .collect::<Vec<_>>()
             .join(" ");
@@ -61,19 +65,19 @@ impl ReadyTileSet {
         let mut ret = vec![];
         let mut shanten_num = 6;
         let mut search_queue = VecDeque::new();
-        search_queue.push_back((0u8, self.clone()));
+        search_queue.push_back((0u8, *self));
         while let Some((depth, ready_set)) = search_queue.pop_front() {
             if depth > shanten_num {
                 break;
             }
-            for tile in &*ALL_TILES {
-                let full_set = ready_set.clone().draw(tile.clone());
+            for tile in ALL_TILES {
+                let full_set = ready_set.draw(tile);
                 if let Some((yakus, han)) = full_set.yakus() {
                     shanten_num = depth;
-                    ret.push((tile.clone(), yakus, han));
+                    ret.push((tile, yakus, han));
                 } else {
                     for discard_tile in &full_set.tiles {
-                        let next_ready_set = full_set.clone().discard(discard_tile).unwrap();
+                        let next_ready_set = full_set.discard(discard_tile).unwrap();
                         search_queue.push_back((depth + 1, next_ready_set));
                     }
                 }
@@ -85,14 +89,16 @@ impl ReadyTileSet {
     pub fn draw(self, tile: Tile) -> FullTileSet {
         let mut tiles = self.tiles;
         let res = tiles.binary_search(&tile);
-        let drawed_index = match res {
+        let index = match res {
             Ok(i) => i,
             Err(i) => i,
-        };
-        tiles.insert(drawed_index, tile);
+        }
+        .min(tiles.len() - 1);
+        tiles[index..].rotate_right(1);
+        tiles[index] = tile;
         FullTileSet {
             tiles,
-            drawed_index,
+            last_draw: tile,
         }
     }
 }
@@ -107,7 +113,7 @@ mod tests {
             ReadyTileSet::from_str("123p 4m3 5s1 6s haku1 chun2 nan1 shaa")
                 .unwrap()
                 .to_string(),
-            "4m 4m 4m 5s 6s 1p 2p 3p nan shaa haku chun chun"
+            "4m 4m 4m 1p 2p 3p 5s 6s nan shaa haku chun chun"
         );
         assert_eq!(
             ReadyTileSet::from_str("hatsu1 123p3 hatsu ton pei")
