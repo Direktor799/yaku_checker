@@ -14,7 +14,7 @@ pub struct FullTileSet {
 }
 
 impl FullTileSet {
-    pub fn yaku(&self) -> Option<Vec<Yaku>> {
+    pub fn yaku(&self) -> Option<(Vec<Yaku>, Han)> {
         let mut possible_yakus = self
             .patterns()
             .iter()
@@ -22,7 +22,12 @@ impl FullTileSet {
             .collect::<Vec<_>>();
         possible_yakus
             .sort_by_key(|yakus| yakus.iter().map(|yaku| yaku.clone().into()).sum::<Han>());
-        possible_yakus.last().cloned()
+        possible_yakus.last().map(|v| {
+            (
+                v.clone(),
+                v.iter().map(|yaku| yaku.clone().into()).sum::<Han>(),
+            )
+        })
     }
 
     pub fn discard(self, tile: &Tile) -> Result<ReadyTileSet> {

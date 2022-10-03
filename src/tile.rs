@@ -88,7 +88,7 @@ impl FromStr for Tile {
                         _ => Err(anyhow!("not in any numbered suit")),
                     }
                 } else {
-                    Err(anyhow!("not a tile"))
+                    Err(anyhow!("\"{}\" is not a tile", s))
                 }
             }
         }

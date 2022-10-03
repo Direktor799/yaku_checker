@@ -1,4 +1,5 @@
-use crate::{tile::Tile, yaku::Yaku, T_CHUN, T_HAKU, T_HATSU};
+use crate::{tile::Tile, yaku::Yaku, T_2S, T_3S, T_4S, T_6S, T_8S, T_HATSU};
+use std::collections::HashMap;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct TilePattern {
@@ -20,38 +21,129 @@ impl TilePattern {
     pub fn yaku(&self) -> Vec<Yaku> {
         let mut ret = vec![];
 
-        if self.is_kokushi13() {
-            return vec![Yaku::Kokushimusou13];
-        } else if self.is_kokushi() {
-            return vec![Yaku::Kokushimusou];
-        }
-
-        if self.is_daisangen() {
-            ret.push(Yaku::Daisangen);
-        }
-
         if self.is_suuankoutanki() {
             ret.push(Yaku::Suuankoutanki);
         } else if self.is_suuankou() {
             ret.push(Yaku::Suuankou);
         }
 
+        if self.is_kokushimusou13() {
+            ret.push(Yaku::Kokushimusou13);
+        } else if self.is_kokushimusou() {
+            ret.push(Yaku::Kokushimusou);
+        }
+
+        if self.is_junseichuurenpoutou() {
+            ret.push(Yaku::Junseichuurenpoutou);
+        } else if self.is_chuurenpoutou() {
+            ret.push(Yaku::Chuurenpoutou);
+        }
+
+        if self.is_daisuushii() {
+            ret.push(Yaku::Daisuushii);
+        } else if self.is_shousuushii() {
+            ret.push(Yaku::Shousuushii);
+        }
+
+        if self.is_daisangen() {
+            ret.push(Yaku::Daisangen);
+        }
+
+        if self.is_tsuuiisou() {
+            ret.push(Yaku::Tsuuiisou);
+        }
+
+        if self.is_ryuuiisou() {
+            ret.push(Yaku::Ryuuiisou);
+        }
+
+        if self.is_chinroutou() {
+            ret.push(Yaku::Chinroutou);
+        }
+
+        if !ret.is_empty() {
+            return ret;
+        }
+
+        if self.is_chiniisou() {
+            ret.push(Yaku::Chiniisou);
+        } else if self.is_honiisou() {
+            ret.push(Yaku::Honiisou);
+        }
+
+        if self.is_ryanpeikou() {
+            ret.push(Yaku::Ryanpeikou);
+        } else if self.is_iipeikou() {
+            ret.push(Yaku::Iipeikou);
+        }
+
+        if self.is_junchantaiyaochuu() {
+            ret.push(Yaku::Junchantaiyaochuu);
+        } else if self.is_honroutou() {
+            ret.push(Yaku::Honroutou)
+        } else if self.is_honchantaiyaochuu() {
+            ret.push(Yaku::Honchantaiyaochuu);
+        }
+
+        if self.is_tanyao() {
+            ret.push(Yaku::Tanyao)
+        }
+
+        ret.append(
+            &mut self
+                .have_yakuhai_sangenpai()
+                .into_iter()
+                .map(Yaku::YakuhaiSangenpai)
+                .collect(),
+        );
+
+        if self.is_pinfu() {
+            ret.push(Yaku::Pinfu);
+        }
+
+        if self.is_sanshokudoukou() {
+            ret.push(Yaku::Sanshokudoukou);
+        }
+
+        if self.is_toitoihou() {
+            ret.push(Yaku::Toitoihou);
+        }
+
+        if self.is_sanankou() {
+            ret.push(Yaku::Sanankou);
+        }
+
+        if self.is_shousangen() {
+            ret.push(Yaku::Shousangen);
+        }
+
+        if self.is_chiitoitsu() {
+            ret.push(Yaku::Chiitoitsu);
+        }
+
+        if self.is_ikkitsuukan() {
+            ret.push(Yaku::Ikkitsuukan);
+        }
+
+        if self.is_sanshokudoujun() {
+            ret.push(Yaku::Sanshokudoujun);
+        }
+
         ret
     }
 
     fn is_tanyao(&self) -> bool {
-        self.pattern.len() == 5
-            && self.pattern.iter().all(|block| {
-                if let Some(tile) = block.triplet() {
-                    tile.is_numbered() && !tile.is_terminal()
-                } else if let Some(tile) = block.sequence() {
-                    tile.is_numbered() && tile.number() > 1 && tile.number() < 7
-                } else if let Some(tile) = block.pair() {
-                    tile.is_numbered() && !tile.is_terminal()
-                } else {
-                    unreachable!()
-                }
-            })
+        self.pattern.iter().all(|block| {
+            if let Some(tile) = block.triplet() {
+                tile.is_numbered() && !tile.is_terminal()
+            } else if let Some(tile) = block.sequence() {
+                tile.is_numbered() && tile.number() > 1 && tile.number() < 7
+            } else if let Some(tile) = block.pair() {
+                tile.is_numbered() && !tile.is_terminal()
+            } else {
+                unreachable!()
+            }
+        })
     }
 
     fn have_yakuhai_sangenpai(&self) -> Vec<Tile> {
@@ -112,12 +204,12 @@ impl TilePattern {
 
     fn is_sanshokudoukou(&self) -> bool {
         if self.pattern.len() == 5 {
-            let mut triplets = vec![];
-            for block in &self.pattern {
-                if let Some(tile) = block.triplet() {
-                    triplets.push(tile.clone());
-                }
-            }
+            let triplets = self
+                .pattern
+                .iter()
+                .filter_map(|block| block.triplet())
+                .collect::<Vec<_>>();
+
             let check_three_triplet = |target: &[Tile]| -> bool {
                 target.iter().all(|tile| tile.is_numbered())
                     && target[0].number() == target[1].number()
@@ -162,37 +254,169 @@ impl TilePattern {
     }
 
     fn is_shousangen(&self) -> bool {
-        // self.pattern.len() == 5 && self.pattern.iter()
-        todo!()
-    }
-
-    fn is_kokushi13(&self) -> bool {
-        self.pattern.len() == 14
+        self.pattern.len() == 5
             && self
                 .pattern
-                .windows(2)
-                .any(|pair| pair[0].0[0] == pair[1].0[0] && pair[0].0[0] == self.last_draw)
+                .iter()
+                .filter_map(|block| match block.triplet().or_else(|| block.pair()) {
+                    Some(tile) if tile.is_dragon() => Some(tile),
+                    _ => None,
+                })
+                .count()
+                == 3
     }
 
-    fn is_kokushi(&self) -> bool {
-        self.pattern.len() == 14
-            && !self
+    fn is_honroutou(&self) -> bool {
+        self.pattern
+            .iter()
+            .flat_map(|block| block.tiles())
+            .all(|tile| tile.is_honor() || tile.is_terminal())
+    }
+
+    fn is_chiitoitsu(&self) -> bool {
+        self.pattern.len() == 7
+    }
+
+    fn is_honchantaiyaochuu(&self) -> bool {
+        self.pattern.len() == 5
+            && self.pattern.iter().all(|block| {
+                if let Some(tile) = block.triplet().or_else(|| block.pair()) {
+                    tile.is_honor() || tile.is_terminal()
+                } else if let Some(tile) = block.sequence() {
+                    tile.number() == 1 || tile.number() == 7
+                } else {
+                    unreachable!()
+                }
+            })
+    }
+
+    fn is_ikkitsuukan(&self) -> bool {
+        if self.pattern.len() == 5 {
+            let seq_starts = self
                 .pattern
-                .windows(2)
-                .any(|pair| pair[0].0[0] == pair[1].0[0] && pair[0].0[0] == self.last_draw)
+                .iter()
+                .filter_map(|block| block.sequence())
+                .collect::<Vec<_>>();
+            let check_three_sequence = |target: &[Tile]| -> bool {
+                target.iter().all(|tile| tile.is_numbered())
+                    && target[0].number() + 3 == target[1].number()
+                    && target[0].number() + 6 == target[2].number()
+                    && target[0].tile_type() == target[1].tile_type()
+                    && target[0].tile_type() == target[2].tile_type()
+            };
+            match seq_starts.len() {
+                0 | 1 | 2 => false,
+                3 => check_three_sequence(&seq_starts),
+                4 => (0..4).any(|index| {
+                    let mut three_seq_starts = seq_starts.clone();
+                    three_seq_starts.remove(index);
+                    check_three_sequence(&three_seq_starts)
+                }),
+                _ => {
+                    unreachable!()
+                }
+            }
+        } else {
+            false
+        }
+    }
+
+    fn is_sanshokudoujun(&self) -> bool {
+        if self.pattern.len() == 5 {
+            let seq_starts = self
+                .pattern
+                .iter()
+                .filter_map(|block| block.sequence())
+                .collect::<Vec<_>>();
+            let check_three_sequence = |target: &[Tile]| -> bool {
+                target.iter().all(|tile| tile.is_numbered())
+                    && target[0].number() == target[1].number()
+                    && target[0].number() == target[2].number()
+                    && target[0].tile_type() != target[1].tile_type()
+                    && target[0].tile_type() != target[2].tile_type()
+                    && target[1].tile_type() != target[2].tile_type()
+            };
+            match seq_starts.len() {
+                0 | 1 | 2 => false,
+                3 => check_three_sequence(&seq_starts),
+                4 => (0..4).any(|index| {
+                    let mut three_seq_starts = seq_starts.clone();
+                    three_seq_starts.remove(index);
+                    check_three_sequence(&three_seq_starts)
+                }),
+                _ => {
+                    unreachable!()
+                }
+            }
+        } else {
+            false
+        }
+    }
+
+    fn is_ryanpeikou(&self) -> bool {
+        if self.pattern.len() == 5 {
+            let mut seq_starts = vec![];
+            for block in &self.pattern {
+                if let Some(tile) = block.sequence() {
+                    seq_starts.push(tile.clone());
+                }
+            }
+            seq_starts.sort();
+            seq_starts.len() == 4
+                && seq_starts[0] == seq_starts[1]
+                && seq_starts[2] == seq_starts[3]
+        } else {
+            false
+        }
+    }
+
+    fn is_junchantaiyaochuu(&self) -> bool {
+        self.pattern.len() == 5
+            && self.pattern.iter().all(|block| {
+                if let Some(tile) = block.triplet().or_else(|| block.pair()) {
+                    tile.is_terminal()
+                } else if let Some(tile) = block.sequence() {
+                    tile.number() == 1 || tile.number() == 7
+                } else {
+                    unreachable!()
+                }
+            })
+    }
+
+    fn is_honiisou(&self) -> bool {
+        let numbered_tiles = self
+            .pattern
+            .iter()
+            .flat_map(|block| block.tiles())
+            .filter(|tile| tile.is_numbered())
+            .collect::<Vec<_>>();
+        numbered_tiles
+            .iter()
+            .all(|tile| tile.tile_type() == numbered_tiles[0].tile_type())
+    }
+
+    fn is_chiniisou(&self) -> bool {
+        let all_tiles = self
+            .pattern
+            .iter()
+            .flat_map(|block| block.tiles())
+            .collect::<Vec<_>>();
+        all_tiles
+            .iter()
+            .all(|tile| tile.tile_type() == all_tiles[0].tile_type())
     }
 
     fn is_daisangen(&self) -> bool {
         self.pattern.len() == 5
-            && [&T_HAKU, &T_HATSU, &T_CHUN].into_iter().all(|tile| {
-                self.pattern.iter().any(|block| {
-                    if let Some(t) = block.triplet() {
-                        t == **tile
-                    } else {
-                        false
-                    }
+            && self
+                .pattern
+                .iter()
+                .filter_map(|block| match block.triplet() {
+                    Some(tile) if tile.is_dragon() => Some(tile),
+                    _ => None,
                 })
-            })
+                .count()
+                == 3
     }
 
     fn is_suuankou(&self) -> bool {
@@ -203,19 +427,121 @@ impl TilePattern {
                 .all(|block| block.triplet().is_some() || block.pair().is_some())
     }
 
-    fn is_suuankoutanki(&self) -> bool {
+    fn is_tsuuiisou(&self) -> bool {
+        self.pattern
+            .iter()
+            .flat_map(|block| block.tiles())
+            .all(|tile| tile.is_honor())
+    }
+
+    fn is_ryuuiisou(&self) -> bool {
+        self.pattern
+            .iter()
+            .flat_map(|block| block.tiles())
+            .all(|tile| {
+                [&T_2S, &T_3S, &T_4S, &T_6S, &T_8S, &T_HATSU]
+                    .into_iter()
+                    .any(|t| **t == *tile)
+            })
+    }
+
+    fn is_chinroutou(&self) -> bool {
         self.pattern.len() == 5
             && self.pattern.iter().all(|block| {
-                if let Some(tile) = block.pair() {
-                    tile == self.last_draw
+                if let Some(tile) = block.triplet().or_else(|| block.pair()) {
+                    tile.is_terminal()
                 } else {
-                    block.triplet().is_some()
+                    false
                 }
             })
     }
 
-    fn is_daisuushii(&self) -> bool {
+    fn is_kokushimusou(&self) -> bool {
+        self.pattern.len() == 14
+    }
+
+    fn is_shousuushii(&self) -> bool {
         self.pattern.len() == 5
+            && self
+                .pattern
+                .iter()
+                .filter_map(|block| match block.triplet().or_else(|| block.pair()) {
+                    Some(tile) if tile.is_wind() => Some(tile),
+                    _ => None,
+                })
+                .count()
+                >= 4
+    }
+
+    fn is_chuurenpoutou(&self) -> bool {
+        if self.pattern.len() == 5 {
+            let all_tiles = self
+                .pattern
+                .iter()
+                .flat_map(|block| block.tiles())
+                .collect::<Vec<_>>();
+            if all_tiles
+                .iter()
+                .any(|tile| tile.tile_type() != all_tiles[0].tile_type())
+            {
+                return false;
+            }
+            let mut map: HashMap<u8, u8> = HashMap::new();
+            all_tiles
+                .iter()
+                .for_each(|tile| *map.entry(tile.number()).or_default() += 1);
+            (1..=9).all(|num| {
+                map.get(&num).is_some()
+                    && if num == 1 || num == 9 {
+                        *map.get(&num).unwrap() >= 3
+                    } else {
+                        true
+                    }
+            })
+        } else {
+            false
+        }
+    }
+
+    fn is_suuankoutanki(&self) -> bool {
+        self.is_suuankou()
+            && self.pattern.iter().all(|block| {
+                if let Some(tile) = block.pair() {
+                    tile == self.last_draw
+                } else {
+                    true
+                }
+            })
+    }
+
+    fn is_kokushimusou13(&self) -> bool {
+        self.is_kokushimusou()
+            && self
+                .pattern
+                .windows(2)
+                .any(|pair| pair[0].0[0] == pair[1].0[0] && pair[0].0[0] == self.last_draw)
+    }
+
+    fn is_junseichuurenpoutou(&self) -> bool {
+        if self.is_chuurenpoutou() {
+            let mut map: HashMap<u8, u8> = HashMap::new();
+            self.pattern
+                .iter()
+                .flat_map(|block| block.tiles())
+                .for_each(|tile| *map.entry(tile.number()).or_default() += 1);
+            if let Some(&num) = map.get(&self.last_draw.number()) {
+                return if self.last_draw.number() == 1 || self.last_draw.number() == 9 {
+                    num == 4
+                } else {
+                    num == 2
+                };
+            }
+        }
+        false
+    }
+
+    fn is_daisuushii(&self) -> bool {
+        self.is_shousuushii()
             && self.pattern.iter().all(|block| {
                 if let Some(tile) = block.triplet() {
                     tile.is_wind()
@@ -262,6 +588,10 @@ impl TileBlock {
             None
         }
     }
+
+    pub fn tiles(&self) -> &Vec<Tile> {
+        &self.0
+    }
 }
 
 #[cfg(test)]
@@ -304,16 +634,13 @@ mod tests {
     fn sangenpai() {
         let tileset = vec![
             vec!["2p", "2p", "2p"],
-            vec!["chun", "chun", "chun"],
+            vec!["3p", "3p", "3p"],
             vec!["hatsu", "hatsu", "hatsu"],
             vec!["6s", "6s", "6s"],
-            vec!["3p", "3p"],
+            vec!["chun", "chun"],
         ];
         let pattern = build_pattern(tileset, "3p");
-        assert_eq!(
-            pattern.have_yakuhai_sangenpai(),
-            vec![T_HATSU.clone(), T_CHUN.clone()]
-        );
+        assert_eq!(pattern.have_yakuhai_sangenpai(), vec![T_HATSU.clone()]);
 
         let tileset = vec![
             vec!["2p", "2p", "2p"],
@@ -486,23 +813,285 @@ mod tests {
     }
 
     #[test]
-    fn koukushi13() {
-        let tileset = [
-            "1p", "9p", "1s", "9s", "1m", "9m", "ton", "nan", "shaa", "pei", "haku", "hatsu",
-            "hatsu", "chun",
+    fn shousangen() {
+        let tileset = vec![
+            vec!["hatsu", "hatsu", "hatsu"],
+            vec!["4p", "5p", "6p"],
+            vec!["chun", "chun", "chun"],
+            vec!["1p", "1p", "1p"],
+            vec!["haku", "haku"],
         ];
-        let pattern = build_pattern(tileset.iter().map(|&s| vec![s]).collect(), "hatsu");
-        assert!(pattern.is_kokushi13());
+        let pattern = build_pattern(tileset, "chun");
+        assert!(pattern.is_shousangen());
+
+        let tileset = vec![
+            vec!["hatsu", "hatsu", "hatsu"],
+            vec!["4p", "5p", "6p"],
+            vec!["chun", "chun", "chun"],
+            vec!["haku", "haku", "haku"],
+            vec!["1p", "1p"],
+        ];
+        let pattern = build_pattern(tileset, "chun");
+        assert!(pattern.is_shousangen());
+
+        let tileset = vec![
+            vec!["hatsu", "hatsu", "hatsu"],
+            vec!["4p", "5p", "6p"],
+            vec!["chun", "chun", "chun"],
+            vec!["3p", "3p", "3p"],
+            vec!["1p", "1p"],
+        ];
+        let pattern = build_pattern(tileset, "chun");
+        assert!(!pattern.is_shousangen());
     }
 
     #[test]
-    fn koukushi() {
-        let tileset = [
-            "1p", "9p", "1s", "9s", "1m", "9m", "ton", "nan", "shaa", "pei", "haku", "hatsu",
-            "hatsu", "chun",
+    fn honroutou() {
+        let tileset = vec![
+            vec!["hatsu", "hatsu", "hatsu"],
+            vec!["9m", "9m", "9m"],
+            vec!["chun", "chun", "chun"],
+            vec!["1s", "1s", "1s"],
+            vec!["1p", "1p"],
         ];
-        let pattern = build_pattern(tileset.iter().map(|&s| vec![s]).collect(), "shaa");
-        assert!(pattern.is_kokushi());
+        let pattern = build_pattern(tileset, "chun");
+        assert!(pattern.is_honroutou());
+
+        let tileset = vec![
+            vec!["9s", "9s", "9s"],
+            vec!["9m", "9m", "9m"],
+            vec!["1m", "1m", "1m"],
+            vec!["1s", "1s", "1s"],
+            vec!["1p", "1p"],
+        ];
+        let pattern = build_pattern(tileset, "1m");
+        assert!(pattern.is_honroutou());
+
+        let tileset = vec![
+            vec!["hatsu", "hatsu", "hatsu"],
+            vec!["9m", "9m", "9m"],
+            vec!["chun", "chun", "chun"],
+            vec!["1s", "2s", "3s"],
+            vec!["1p", "1p"],
+        ];
+        let pattern = build_pattern(tileset, "chun");
+        assert!(!pattern.is_honroutou());
+    }
+
+    #[test]
+    fn chiitoitsu() {
+        let tileset = vec![
+            vec!["hatsu", "hatsu"],
+            vec!["9m", "9m"],
+            vec!["chun", "chun"],
+            vec!["1s", "1s"],
+            vec!["1p", "1p"],
+            vec!["5m", "5m"],
+            vec!["ton", "ton"],
+        ];
+        let pattern = build_pattern(tileset, "chun");
+        assert!(pattern.is_chiitoitsu());
+    }
+
+    #[test]
+    fn honchantaiyaochuu() {
+        let tileset = vec![
+            vec!["hatsu", "hatsu", "hatsu"],
+            vec!["7m", "8m", "9m"],
+            vec!["chun", "chun", "chun"],
+            vec!["1s", "2s", "3s"],
+            vec!["1p", "1p"],
+        ];
+        let pattern = build_pattern(tileset, "chun");
+        assert!(pattern.is_honchantaiyaochuu());
+
+        let tileset = vec![
+            vec!["hatsu", "hatsu", "hatsu"],
+            vec!["9m", "9m", "9m"],
+            vec!["chun", "chun", "chun"],
+            vec!["1s", "1s", "1s"],
+            vec!["1p", "1p"],
+        ];
+        let pattern = build_pattern(tileset, "chun");
+        assert!(pattern.is_honchantaiyaochuu());
+
+        let tileset = vec![
+            vec!["1m", "2m", "3m"],
+            vec!["9m", "9m", "9m"],
+            vec!["9s", "9s", "9s"],
+            vec!["1s", "1s", "1s"],
+            vec!["1p", "1p"],
+        ];
+        let pattern = build_pattern(tileset, "9s");
+        assert!(pattern.is_honchantaiyaochuu());
+
+        let tileset = vec![
+            vec!["hatsu", "hatsu", "hatsu"],
+            vec!["6m", "7m", "8m"],
+            vec!["chun", "chun", "chun"],
+            vec!["1s", "1s", "1s"],
+            vec!["1p", "1p"],
+        ];
+        let pattern = build_pattern(tileset, "chun");
+        assert!(!pattern.is_honchantaiyaochuu());
+    }
+
+    #[test]
+    fn ikkitsuukan() {
+        let tileset = vec![
+            vec!["1s", "2s", "3s"],
+            vec!["4s", "5s", "6s"],
+            vec!["7s", "8s", "9s"],
+            vec!["chun", "chun", "chun"],
+            vec!["1p", "1p"],
+        ];
+        let pattern = build_pattern(tileset, "chun");
+        assert!(pattern.is_ikkitsuukan());
+
+        let tileset = vec![
+            vec!["2s", "3s", "4s"],
+            vec!["4s", "5s", "6s"],
+            vec!["7s", "8s", "9s"],
+            vec!["chun", "chun", "chun"],
+            vec!["1s", "1s"],
+        ];
+        let pattern = build_pattern(tileset, "chun");
+        assert!(!pattern.is_ikkitsuukan());
+    }
+
+    #[test]
+    fn sanshokudoujun() {
+        let tileset = vec![
+            vec!["1s", "2s", "3s"],
+            vec!["1m", "2m", "3m"],
+            vec!["1p", "2p", "3p"],
+            vec!["chun", "chun", "chun"],
+            vec!["1p", "1p"],
+        ];
+        let pattern = build_pattern(tileset, "chun");
+        assert!(pattern.is_sanshokudoujun());
+
+        let tileset = vec![
+            vec!["1s", "2s", "3s"],
+            vec!["1m", "2m", "3m"],
+            vec!["1p", "1p", "1p"],
+            vec!["2p", "2p", "2p"],
+            vec!["3p", "3p"],
+        ];
+        let pattern = build_pattern(tileset, "1p");
+        assert!(!pattern.is_sanshokudoujun());
+    }
+
+    #[test]
+    fn ryanpeikou() {
+        let tileset = vec![
+            vec!["1s", "2s", "3s"],
+            vec!["1s", "2s", "3s"],
+            vec!["1p", "2p", "3p"],
+            vec!["1p", "2p", "3p"],
+            vec!["1p", "1p"],
+        ];
+        let pattern = build_pattern(tileset, "1p");
+        assert!(pattern.is_ryanpeikou());
+
+        let tileset = vec![
+            vec!["1s", "2s", "3s"],
+            vec!["1s", "2s", "3s"],
+            vec!["1p", "2p", "3p"],
+            vec!["2p", "3p", "4p"],
+            vec!["1p", "1p"],
+        ];
+        let pattern = build_pattern(tileset, "1p");
+        assert!(!pattern.is_ryanpeikou());
+    }
+
+    #[test]
+    fn junchantaiyaochuu() {
+        let tileset = vec![
+            vec!["1m", "2m", "3m"],
+            vec!["9m", "9m", "9m"],
+            vec!["9s", "9s", "9s"],
+            vec!["1s", "1s", "1s"],
+            vec!["1p", "1p"],
+        ];
+        let pattern = build_pattern(tileset, "9s");
+        assert!(pattern.is_junchantaiyaochuu());
+
+        let tileset = vec![
+            vec!["2m", "3m", "4m"],
+            vec!["9m", "9m", "9m"],
+            vec!["9s", "9s", "9s"],
+            vec!["1s", "1s", "1s"],
+            vec!["1p", "1p"],
+        ];
+        let pattern = build_pattern(tileset, "9s");
+        assert!(!pattern.is_junchantaiyaochuu());
+
+        let tileset = vec![
+            vec!["1m", "2m", "3m"],
+            vec!["9m", "9m", "9m"],
+            vec!["9s", "9s", "9s"],
+            vec!["haku", "haku", "haku"],
+            vec!["1p", "1p"],
+        ];
+        let pattern = build_pattern(tileset, "9s");
+        assert!(!pattern.is_junchantaiyaochuu());
+    }
+
+    #[test]
+    fn honiisou() {
+        let tileset = vec![
+            vec!["3p", "3p", "3p"],
+            vec!["4p", "5p", "6p"],
+            vec!["chun", "chun", "chun"],
+            vec!["1p", "1p", "1p"],
+            vec!["haku", "haku"],
+        ];
+        let pattern = build_pattern(tileset, "chun");
+        assert!(pattern.is_honiisou());
+
+        let tileset = vec![
+            vec!["3p", "3p", "3p"],
+            vec!["4p", "5p", "6p"],
+            vec!["9p", "9p", "9p"],
+            vec!["1p", "1p", "1p"],
+            vec!["5p", "5p"],
+        ];
+        let pattern = build_pattern(tileset, "chun");
+        assert!(pattern.is_honiisou());
+
+        let tileset = vec![
+            vec!["3p", "3p", "3p"],
+            vec!["4p", "5p", "6p"],
+            vec!["chun", "chun", "chun"],
+            vec!["1p", "1p", "1p"],
+            vec!["2m", "2m"],
+        ];
+        let pattern = build_pattern(tileset, "chun");
+        assert!(!pattern.is_honiisou());
+    }
+
+    #[test]
+    fn chiniisou() {
+        let tileset = vec![
+            vec!["3p", "3p", "3p"],
+            vec!["4p", "5p", "6p"],
+            vec!["9p", "9p", "9p"],
+            vec!["1p", "1p", "1p"],
+            vec!["2p", "2p"],
+        ];
+        let pattern = build_pattern(tileset, "2p");
+        assert!(pattern.is_chiniisou());
+
+        let tileset = vec![
+            vec!["3p", "3p", "3p"],
+            vec!["4p", "5p", "6p"],
+            vec!["9p", "9p", "9p"],
+            vec!["1p", "1p", "1p"],
+            vec!["2m", "2m"],
+        ];
+        let pattern = build_pattern(tileset, "2p");
+        assert!(!pattern.is_chiniisou());
     }
 
     #[test]
@@ -516,6 +1105,16 @@ mod tests {
         ];
         let pattern = build_pattern(tileset, "2p");
         assert!(pattern.is_daisangen());
+
+        let tileset = vec![
+            vec!["haku", "haku", "haku"],
+            vec!["hatsu", "hatsu", "hatsu"],
+            vec!["2p", "2p", "2p"],
+            vec!["1p", "1p", "1p"],
+            vec!["chun", "chun"],
+        ];
+        let pattern = build_pattern(tileset, "2p");
+        assert!(!pattern.is_daisangen());
     }
 
     #[test]
@@ -529,6 +1128,171 @@ mod tests {
         ];
         let pattern = build_pattern(tileset, "haku");
         assert!(pattern.is_suuankou());
+
+        let tileset = vec![
+            vec!["haku", "haku", "haku"],
+            vec!["hatsu", "hatsu", "hatsu"],
+            vec!["chun", "chun", "chun"],
+            vec!["1p", "2p", "3p"],
+            vec!["2p", "2p"],
+        ];
+        let pattern = build_pattern(tileset, "haku");
+        assert!(!pattern.is_suuankou());
+    }
+
+    #[test]
+    fn tsuuiisou() {
+        let tileset = vec![
+            vec!["haku", "haku", "haku"],
+            vec!["hatsu", "hatsu", "hatsu"],
+            vec!["chun", "chun", "chun"],
+            vec!["ton", "ton", "ton"],
+            vec!["shaa", "shaa"],
+        ];
+        let pattern = build_pattern(tileset, "haku");
+        assert!(pattern.is_tsuuiisou());
+
+        let tileset = vec![
+            vec!["haku", "haku", "haku"],
+            vec!["hatsu", "hatsu", "hatsu"],
+            vec!["chun", "chun", "chun"],
+            vec!["ton", "ton", "ton"],
+            vec!["8p", "8p"],
+        ];
+        let pattern = build_pattern(tileset, "haku");
+        assert!(!pattern.is_tsuuiisou());
+    }
+
+    #[test]
+    fn ryuuiisou() {
+        let tileset = vec![
+            vec!["2s", "3s", "4s"],
+            vec!["2s", "3s", "4s"],
+            vec!["2s", "3s", "4s"],
+            vec!["hatsu", "hatsu", "hatsu"],
+            vec!["8s", "8s"],
+        ];
+        let pattern = build_pattern(tileset, "8s");
+        assert!(pattern.is_ryuuiisou());
+
+        let tileset = vec![
+            vec!["2s", "3s", "4s"],
+            vec!["2s", "3s", "4s"],
+            vec!["2s", "3s", "4s"],
+            vec!["haku", "haku", "haku"],
+            vec!["8s", "8s"],
+        ];
+        let pattern = build_pattern(tileset, "8s");
+        assert!(!pattern.is_ryuuiisou());
+
+        let tileset = vec![
+            vec!["2s", "3s", "4s"],
+            vec!["2s", "3s", "4s"],
+            vec!["2s", "3s", "4s"],
+            vec!["hatsu", "hatsu", "hatsu"],
+            vec!["8m", "8m"],
+        ];
+        let pattern = build_pattern(tileset, "8m");
+        assert!(!pattern.is_ryuuiisou());
+    }
+
+    #[test]
+    fn chinroutou() {
+        let tileset = vec![
+            vec!["1p", "1p", "1p"],
+            vec!["9p", "9p", "9p"],
+            vec!["1s", "1s", "1s"],
+            vec!["9s", "9s", "9s"],
+            vec!["1m", "1m"],
+        ];
+        let pattern = build_pattern(tileset, "1m");
+        assert!(pattern.is_chinroutou());
+
+        let tileset = vec![
+            vec!["1p", "2p", "3p"],
+            vec!["9p", "9p", "9p"],
+            vec!["1s", "1s", "1s"],
+            vec!["9s", "9s", "9s"],
+            vec!["1m", "1m"],
+        ];
+        let pattern = build_pattern(tileset, "1m");
+        assert!(!pattern.is_chinroutou());
+
+        let tileset = vec![
+            vec!["haku", "haku", "haku"],
+            vec!["9p", "9p", "9p"],
+            vec!["1s", "1s", "1s"],
+            vec!["9s", "9s", "9s"],
+            vec!["1m", "1m"],
+        ];
+        let pattern = build_pattern(tileset, "1m");
+        assert!(!pattern.is_chinroutou());
+    }
+
+    #[test]
+    fn kokushimusou() {
+        let tileset = [
+            "1p", "9p", "1s", "9s", "1m", "9m", "ton", "nan", "shaa", "pei", "haku", "hatsu",
+            "hatsu", "chun",
+        ];
+        let pattern = build_pattern(tileset.iter().map(|&s| vec![s]).collect(), "shaa");
+        assert!(pattern.is_kokushimusou());
+    }
+
+    #[test]
+    fn shousuushii() {
+        let tileset = vec![
+            vec!["ton", "ton", "ton"],
+            vec!["nan", "nan", "nan"],
+            vec!["shaa", "shaa", "shaa"],
+            vec!["3p", "3p", "3p"],
+            vec!["pei", "pei"],
+        ];
+        let pattern = build_pattern(tileset.clone(), "pei");
+        assert!(pattern.is_shousuushii());
+
+        let tileset = vec![
+            vec!["ton", "ton", "ton"],
+            vec!["nan", "nan", "nan"],
+            vec!["shaa", "shaa", "shaa"],
+            vec!["pei", "pei", "pei"],
+            vec!["3p", "3p"],
+        ];
+        let pattern = build_pattern(tileset.clone(), "pei");
+        assert!(pattern.is_shousuushii());
+
+        let tileset = vec![
+            vec!["ton", "ton", "ton"],
+            vec!["nan", "nan", "nan"],
+            vec!["shaa", "shaa", "shaa"],
+            vec!["2p", "2p", "2p"],
+            vec!["3p", "3p"],
+        ];
+        let pattern = build_pattern(tileset.clone(), "3p");
+        assert!(!pattern.is_shousuushii());
+    }
+
+    #[test]
+    fn chuurenpoutou() {
+        let tileset = vec![
+            vec!["1p", "1p", "1p"],
+            vec!["2p", "3p", "4p"],
+            vec!["5p", "6p", "7p"],
+            vec!["9p", "9p", "9p"],
+            vec!["8p", "8p"],
+        ];
+        let pattern = build_pattern(tileset.clone(), "9p");
+        assert!(pattern.is_chuurenpoutou());
+
+        let tileset = vec![
+            vec!["1p", "1p", "1p"],
+            vec!["1p", "2p", "3p"],
+            vec!["5p", "6p", "7p"],
+            vec!["7p", "8p", "9p"],
+            vec!["9p", "9p"],
+        ];
+        let pattern = build_pattern(tileset.clone(), "9p");
+        assert!(!pattern.is_chuurenpoutou());
     }
 
     #[test]
@@ -542,6 +1306,76 @@ mod tests {
         ];
         let pattern = build_pattern(tileset, "2p");
         assert!(pattern.is_suuankoutanki());
+
+        let tileset = vec![
+            vec!["haku", "haku", "haku"],
+            vec!["hatsu", "hatsu", "hatsu"],
+            vec!["chun", "chun", "chun"],
+            vec!["1p", "1p", "1p"],
+            vec!["2p", "2p"],
+        ];
+        let pattern = build_pattern(tileset, "1p");
+        assert!(!pattern.is_suuankoutanki());
+    }
+
+    #[test]
+    fn kokushimusou13() {
+        let tileset = [
+            "1p", "9p", "1s", "9s", "1m", "9m", "ton", "nan", "shaa", "pei", "haku", "hatsu",
+            "hatsu", "chun",
+        ];
+        let pattern = build_pattern(tileset.iter().map(|&s| vec![s]).collect(), "hatsu");
+        assert!(pattern.is_kokushimusou13());
+
+        let tileset = [
+            "1p", "9p", "1s", "9s", "1m", "9m", "ton", "nan", "shaa", "pei", "haku", "hatsu",
+            "hatsu", "chun",
+        ];
+        let pattern = build_pattern(tileset.iter().map(|&s| vec![s]).collect(), "haku");
+        assert!(!pattern.is_kokushimusou13());
+    }
+
+    #[test]
+    fn junseichuurenpoutou() {
+        let tileset = vec![
+            vec!["1p", "1p", "1p"],
+            vec!["2p", "3p", "4p"],
+            vec!["5p", "6p", "7p"],
+            vec!["9p", "9p", "9p"],
+            vec!["8p", "8p"],
+        ];
+        let pattern = build_pattern(tileset.clone(), "8p");
+        assert!(pattern.is_junseichuurenpoutou());
+
+        let tileset = vec![
+            vec!["1p", "1p", "1p"],
+            vec!["1p", "2p", "3p"],
+            vec!["4p", "5p", "6p"],
+            vec!["7p", "8p", "9p"],
+            vec!["9p", "9p"],
+        ];
+        let pattern = build_pattern(tileset.clone(), "1p");
+        assert!(pattern.is_junseichuurenpoutou());
+
+        let tileset = vec![
+            vec!["1p", "1p", "1p"],
+            vec!["2p", "3p", "4p"],
+            vec!["5p", "6p", "7p"],
+            vec!["9p", "9p", "9p"],
+            vec!["8p", "8p"],
+        ];
+        let pattern = build_pattern(tileset.clone(), "9p");
+        assert!(!pattern.is_junseichuurenpoutou());
+
+        let tileset = vec![
+            vec!["1p", "1p", "1p"],
+            vec!["1p", "2p", "3p"],
+            vec!["4p", "5p", "6p"],
+            vec!["7p", "8p", "9p"],
+            vec!["9p", "9p"],
+        ];
+        let pattern = build_pattern(tileset.clone(), "9p");
+        assert!(!pattern.is_junseichuurenpoutou());
     }
 
     #[test]
