@@ -43,10 +43,7 @@ impl FullTileSet {
     pub fn is_useless(&self, discard: Tile) -> bool {
         self.tiles
             .into_iter()
-            .filter(|tile| {
-                discard.tile_type() == tile.tile_type()
-                    && (discard.number() as i8 - tile.number() as i8).abs() <= 2
-            })
+            .filter(|&tile| discard.is_related(tile))
             .count()
             == 1
     }
@@ -77,10 +74,24 @@ impl FullTileSet {
 
         // check chiitoi
         if self.tiles.chunks(2).all(|pair| pair[0] == pair[1])
-            && self.tiles.windows(3).all(|quad| quad[0] != quad[2])
+            && self.tiles.windows(3).all(|tri| tri[0] != tri[2])
         {
             let pattern = self.tiles.chunks(2).map(TileBlock::new).collect();
             patterns.push(TilePattern::new(pattern, self.last_draw));
+        }
+
+        // fast test for common pattern
+        let mut index = 0;
+        let mut last_valid = false;
+        while index < 13 {
+            if self.tiles[index].is_related(self.tiles[index + 1]) {
+                last_valid = true;
+            } else if last_valid && index != 12 {
+                last_valid = false;
+            } else {
+                return patterns;
+            }
+            index += 1;
         }
 
         // check common
@@ -92,6 +103,7 @@ impl FullTileSet {
             pattern.sort();
             patterns.push(TilePattern::new(pattern, self.last_draw));
         }
+
         patterns.sort();
         patterns.dedup();
         patterns
@@ -109,32 +121,29 @@ impl FullTileSet {
         }
         let mut ret = vec![];
 
+        let ks = tile_left
+            .iter()
+            .filter_map(|(&k, &v)| if v > 0 { Some(k) } else { None })
+            .take(3)
+            .collect::<Vec<_>>();
+
         // continue with a triplet
-        if group_left > 0 {
-            let (&k, &v) = tile_left.iter().find(|(_, &v)| v != 0).unwrap();
-            if v >= 3 {
-                let current = TileBlock::new(&[k; 3]);
-                *tile_left.get_mut(&k).unwrap() -= 3;
-                Self::find_common_patterns(tile_left, group_left - 1, pair_left, last_draw)
-                    .into_iter()
-                    .map(|mut v| {
-                        v.push(current);
-                        v
-                    })
-                    .for_each(|v| ret.push(v));
-                *tile_left.get_mut(&k).unwrap() += 3;
-            }
+        if group_left > 0 && *tile_left.get(&ks[0]).unwrap() >= 3 {
+            let current = TileBlock::new(&[ks[0]; 3]);
+            *tile_left.get_mut(&ks[0]).unwrap() -= 3;
+            Self::find_common_patterns(tile_left, group_left - 1, pair_left, last_draw)
+                .into_iter()
+                .map(|mut v| {
+                    v.push(current);
+                    v
+                })
+                .for_each(|v| ret.push(v));
+            *tile_left.get_mut(&ks[0]).unwrap() += 3;
         }
 
         // continue with a sequence
-        if group_left > 0 && tile_left.iter().filter(|(_, &v)| v > 0).count() >= 3 {
-            let ks = tile_left
-                .iter()
-                .filter_map(|(&k, &v)| if v > 0 { Some(k) } else { None })
-                .take(3)
-                .collect::<Vec<_>>();
+        if group_left > 0 && ks.len() >= 3 {
             let current = TileBlock::new(&ks);
-
             if current.sequence().is_some() {
                 *tile_left.get_mut(&current.tiles()[0]).unwrap() -= 1;
                 *tile_left.get_mut(&current.tiles()[1]).unwrap() -= 1;
@@ -153,20 +162,17 @@ impl FullTileSet {
         }
 
         // continue with a pair
-        if pair_left > 0 {
-            let (&k, &v) = tile_left.iter().find(|(_, &v)| v != 0).unwrap();
-            if v >= 2 {
-                let current = TileBlock::new(&[k; 2]);
-                *tile_left.get_mut(&k).unwrap() -= 2;
-                Self::find_common_patterns(tile_left, group_left, pair_left - 1, last_draw)
-                    .into_iter()
-                    .map(|mut v| {
-                        v.push(current);
-                        v
-                    })
-                    .for_each(|v| ret.push(v));
-                *tile_left.get_mut(&k).unwrap() += 2;
-            }
+        if pair_left > 0 && *tile_left.get(&ks[0]).unwrap() >= 2 {
+            let current = TileBlock::new(&[ks[0]; 2]);
+            *tile_left.get_mut(&ks[0]).unwrap() -= 2;
+            Self::find_common_patterns(tile_left, group_left, pair_left - 1, last_draw)
+                .into_iter()
+                .map(|mut v| {
+                    v.push(current);
+                    v
+                })
+                .for_each(|v| ret.push(v));
+            *tile_left.get_mut(&ks[0]).unwrap() += 2;
         }
         ret
     }

@@ -157,6 +157,11 @@ impl Tile {
         self.is_honor() && !self.is_dragon()
     }
 
+    pub fn is_related(&self, other: Tile) -> bool {
+        self.tile_type() == other.tile_type()
+            && (self.number() as i8 - other.number() as i8).abs() <= 2
+    }
+
     pub fn tile_type(&self) -> u8 {
         self.0 >> 4
     }

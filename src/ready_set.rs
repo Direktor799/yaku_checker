@@ -166,10 +166,7 @@ impl ReadyTileSet {
 
     /// maybe forward shanten
     pub fn maybe_effective(&self, draw: Tile) -> bool {
-        self.tiles[..13].iter().any(|&tile| {
-            draw.tile_type() == tile.tile_type()
-                && (draw.number() as i8 - tile.number() as i8).abs() <= 2
-        })
+        self.tiles[..13].iter().any(|&tile| draw.is_related(tile))
     }
 }
 
