@@ -81,8 +81,39 @@ impl ReadyTileSet {
             return ReadyState::Tenpai(tenpai_ret);
         }
 
-        let mut shanten_ret = vec![];
-        let mut shanten_num = 6;
+        // check kokushi shanten
+        let mut yaochuus = self.tiles[..13]
+            .iter()
+            .filter(|&&tile| tile.is_terminal() || tile.is_honor())
+            .collect::<Vec<_>>();
+        let bonus = yaochuus.windows(2).any(|tiles| tiles[0] == tiles[1]);
+        yaochuus.dedup();
+        let distinct_yaochuu_num = yaochuus.len() as u8;
+        let mut shanten_num = 13 - (distinct_yaochuu_num + bonus as u8);
+        let mut shanten_ret = if bonus {
+            vec![vec![Yaku::Kokushimusou]]
+        } else {
+            vec![vec![Yaku::Kokushimusou13]]
+        };
+
+        // check chiitoi shanten
+        let mut pair_num = 0;
+        let mut index = 0;
+        while index < 12 {
+            if self.tiles[index] == self.tiles[index + 1] {
+                pair_num += 1;
+                index += 2;
+            } else {
+                index += 1;
+            }
+        }
+        if 6 - pair_num < shanten_num {
+            // only to set max depth
+            shanten_num = 6 - pair_num;
+            // push later
+            shanten_ret.clear();
+        }
+
         let mut search_queue = VecDeque::new();
         search_queue.push_back((0u8, *self));
         while let Some((depth, ready_set)) = search_queue.pop_front() {
@@ -95,6 +126,9 @@ impl ReadyTileSet {
             {
                 let full_set = ready_set.draw(draw_tile);
                 if let Some(yakus) = full_set.yakus() {
+                    if depth < shanten_num {
+                        shanten_ret.clear();
+                    }
                     shanten_num = depth;
                     shanten_ret.push(yakus);
                 } else {
