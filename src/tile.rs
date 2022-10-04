@@ -4,7 +4,7 @@ use std::{
     str::FromStr,
 };
 
-pub const ALL_TILES: [Tile; 35] = [
+pub const ALL_TILES: [Tile; 34] = [
     Tile(0x01),
     Tile(0x02),
     Tile(0x03),
@@ -39,7 +39,6 @@ pub const ALL_TILES: [Tile; 35] = [
     Tile(0x70),
     Tile(0x80),
     Tile(0x90),
-    Tile(0xff),
 ];
 
 pub const T_1M: Tile = ALL_TILES[0];
@@ -76,7 +75,7 @@ pub const T_PEI: Tile = ALL_TILES[30];
 pub const T_HAKU: Tile = ALL_TILES[31];
 pub const T_HATSU: Tile = ALL_TILES[32];
 pub const T_CHUN: Tile = ALL_TILES[33];
-pub const T_INVALID: Tile = ALL_TILES[34];
+pub const T_INVALID: Tile = Tile(0xff);
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Tile(u8);

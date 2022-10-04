@@ -66,9 +66,21 @@ impl Display for ReadyTileSet {
 }
 
 impl ReadyTileSet {
-    /// a very heavy search, return (shanten_num, Vec<(effective_income, yakus, han)>)
+    /// a very heavy search
     pub fn shanten(&self) -> ReadyState {
-        let mut tenpai_ret = vec![];
+        let tenpai_ret = ALL_TILES
+            .into_iter()
+            .filter_map(|draw_tile| {
+                self.maybe_effective(draw_tile)
+                    .then_some(draw_tile)
+                    .and_then(|draw_tile| self.draw(draw_tile).yakus())
+                    .map(|yakus| (draw_tile, yakus))
+            })
+            .collect::<Vec<_>>();
+        if !tenpai_ret.is_empty() {
+            return ReadyState::Tenpai(tenpai_ret);
+        }
+
         let mut shanten_ret = vec![];
         let mut shanten_num = 6;
         let mut search_queue = VecDeque::new();
@@ -77,34 +89,29 @@ impl ReadyTileSet {
             if depth > shanten_num {
                 break;
             }
-            for draw_tile in ALL_TILES {
-                if self.is_effective(draw_tile) {
-                    let full_set = ready_set.draw(draw_tile);
-                    if let Some(yakus) = full_set.yakus() {
-                        shanten_num = depth;
-                        if depth == 0 {
-                            tenpai_ret.push((draw_tile, yakus));
-                        } else {
-                            shanten_ret.push(yakus);
-                        }
-                    } else {
-                        for discard_tile in full_set.tiles {
-                            if full_set.is_effective(discard_tile) && discard_tile != draw_tile {
-                                let next_ready_set = full_set.discard(discard_tile).unwrap();
-                                search_queue.push_back((depth + 1, next_ready_set));
-                            }
-                        }
+            for draw_tile in ALL_TILES
+                .into_iter()
+                .filter(|&tile| ready_set.maybe_effective(tile))
+            {
+                let full_set = ready_set.draw(draw_tile);
+                if let Some(yakus) = full_set.yakus() {
+                    shanten_num = depth;
+                    shanten_ret.push(yakus);
+                } else {
+                    for discard_tile in full_set
+                        .tiles
+                        .into_iter()
+                        .filter(|&tile| tile != draw_tile && full_set.is_useless(tile))
+                    {
+                        let next_ready_set = full_set.discard(discard_tile).unwrap();
+                        search_queue.push_back((depth + 1, next_ready_set));
                     }
                 }
             }
         }
-        if !tenpai_ret.is_empty() {
-            ReadyState::Tenpai(tenpai_ret)
-        } else {
-            shanten_ret.sort();
-            shanten_ret.dedup();
-            ReadyState::Shanten((shanten_num, shanten_ret))
-        }
+        shanten_ret.sort();
+        shanten_ret.dedup();
+        ReadyState::Shanten((shanten_num, shanten_ret))
     }
 
     pub fn draw(self, tile: Tile) -> FullTileSet {
@@ -123,12 +130,11 @@ impl ReadyTileSet {
         }
     }
 
-    pub fn is_effective(&self, draw: Tile) -> bool {
+    /// maybe forward shanten
+    pub fn maybe_effective(&self, draw: Tile) -> bool {
         self.tiles[..13].iter().any(|&tile| {
-            tile == draw
-                || (draw.is_numbered()
-                    && draw.tile_type() == tile.tile_type()
-                    && (draw.number() as i8 - tile.number() as i8).abs() <= 2)
+            draw.tile_type() == tile.tile_type()
+                && (draw.number() as i8 - tile.number() as i8).abs() <= 2
         })
     }
 }

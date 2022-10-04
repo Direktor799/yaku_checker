@@ -39,7 +39,8 @@ impl FullTileSet {
         }
     }
 
-    pub fn is_effective(&self, discard: Tile) -> bool {
+    /// will not back shanten
+    pub fn is_useless(&self, discard: Tile) -> bool {
         self.tiles
             .into_iter()
             .filter(|tile| {
@@ -50,7 +51,7 @@ impl FullTileSet {
             == 1
     }
 
-    /// Vec of all possible patterns
+    /// return all possible patterns
     fn patterns(&self) -> Vec<TilePattern> {
         let mut patterns = vec![];
         // check kokushi
