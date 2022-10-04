@@ -16,7 +16,7 @@ pub struct FullTileSet {
 }
 
 impl FullTileSet {
-    pub fn yakus(&self) -> Option<(Vec<Yaku>, Han)> {
+    pub fn yakus(&self) -> Option<Vec<Yaku>> {
         let patterns = self.patterns();
         let mut possible_yakus = patterns
             .iter()
@@ -26,19 +26,28 @@ impl FullTileSet {
             possible_yakus.push(vec![]);
         }
         possible_yakus.sort_by_key(|yakus| yakus.iter().map(|&yaku| yaku.into()).sum::<Han>());
-        possible_yakus
-            .last()
-            .map(|v| (v.clone(), v.iter().map(|&yaku| yaku.into()).sum::<Han>()))
+        possible_yakus.last().cloned()
     }
 
-    pub fn discard(self, tile: &Tile) -> Result<ReadyTileSet> {
+    pub fn discard(self, tile: Tile) -> Result<ReadyTileSet> {
         let mut tiles = self.tiles;
-        if let Some(index) = tiles.iter().position(|t| t == tile) {
+        if let Some(index) = tiles.iter().position(|&t| t == tile) {
             tiles[index..].rotate_left(1);
             Ok(ReadyTileSet { tiles })
         } else {
             Err(anyhow!("no such tile"))
         }
+    }
+
+    pub fn is_effective(&self, discard: Tile) -> bool {
+        self.tiles
+            .into_iter()
+            .filter(|tile| {
+                discard.tile_type() == tile.tile_type()
+                    && (discard.number() as i8 - tile.number() as i8).abs() <= 2
+            })
+            .count()
+            == 1
     }
 
     /// Vec of all possible patterns

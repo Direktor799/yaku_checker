@@ -1,4 +1,4 @@
-use crate::{full_set::FullTileSet, tile::Tile, yaku::Han, Yaku, ALL_TILES, T_INVALID};
+use crate::{full_set::FullTileSet, tile::Tile, Yaku, ALL_TILES, T_INVALID};
 use anyhow::{anyhow, Error, Result};
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -11,6 +11,12 @@ static TILESET_REGEX: Lazy<Regex> = Lazy::new(|| {
 #[derive(Debug, Clone, Copy)]
 pub struct ReadyTileSet {
     pub(crate) tiles: [Tile; 14],
+}
+
+#[derive(Debug)]
+pub enum ReadyState {
+    Tenpai(Vec<(Tile, Vec<Yaku>)>),
+    Shanten((u8, Vec<Vec<Yaku>>)),
 }
 
 impl FromStr for ReadyTileSet {
@@ -61,8 +67,9 @@ impl Display for ReadyTileSet {
 
 impl ReadyTileSet {
     /// a very heavy search, return (shanten_num, Vec<(effective_income, yakus, han)>)
-    pub fn shanten(&self) -> (u8, Vec<(Tile, Vec<Yaku>, Han)>) {
-        let mut ret = vec![];
+    pub fn shanten(&self) -> ReadyState {
+        let mut tenpai_ret = vec![];
+        let mut shanten_ret = vec![];
         let mut shanten_num = 6;
         let mut search_queue = VecDeque::new();
         search_queue.push_back((0u8, *self));
@@ -70,20 +77,34 @@ impl ReadyTileSet {
             if depth > shanten_num {
                 break;
             }
-            for tile in ALL_TILES {
-                let full_set = ready_set.draw(tile);
-                if let Some((yakus, han)) = full_set.yakus() {
-                    shanten_num = depth;
-                    ret.push((tile, yakus, han));
-                } else {
-                    for discard_tile in &full_set.tiles {
-                        let next_ready_set = full_set.discard(discard_tile).unwrap();
-                        search_queue.push_back((depth + 1, next_ready_set));
+            for draw_tile in ALL_TILES {
+                if self.is_effective(draw_tile) {
+                    let full_set = ready_set.draw(draw_tile);
+                    if let Some(yakus) = full_set.yakus() {
+                        shanten_num = depth;
+                        if depth == 0 {
+                            tenpai_ret.push((draw_tile, yakus));
+                        } else {
+                            shanten_ret.push(yakus);
+                        }
+                    } else {
+                        for discard_tile in full_set.tiles {
+                            if full_set.is_effective(discard_tile) && discard_tile != draw_tile {
+                                let next_ready_set = full_set.discard(discard_tile).unwrap();
+                                search_queue.push_back((depth + 1, next_ready_set));
+                            }
+                        }
                     }
                 }
             }
         }
-        (shanten_num, ret)
+        if !tenpai_ret.is_empty() {
+            ReadyState::Tenpai(tenpai_ret)
+        } else {
+            shanten_ret.sort();
+            shanten_ret.dedup();
+            ReadyState::Shanten((shanten_num, shanten_ret))
+        }
     }
 
     pub fn draw(self, tile: Tile) -> FullTileSet {
@@ -100,6 +121,15 @@ impl ReadyTileSet {
             tiles,
             last_draw: tile,
         }
+    }
+
+    pub fn is_effective(&self, draw: Tile) -> bool {
+        self.tiles[..13].iter().any(|&tile| {
+            tile == draw
+                || (draw.is_numbered()
+                    && draw.tile_type() == tile.tile_type()
+                    && (draw.number() as i8 - tile.number() as i8).abs() <= 2)
+        })
     }
 }
 
