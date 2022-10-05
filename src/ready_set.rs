@@ -118,60 +118,85 @@ impl ReadyTileSet {
         };
 
         // check chiitoi shanten
-        let mut pair_num = 0;
-        let mut index = 0;
-        while index < 12 {
-            if self.tiles[index] == self.tiles[index + 1] {
-                pair_num += 1;
-                index += 2;
-            } else {
-                index += 1;
-            }
-        }
-        if 6 - pair_num < shanten_num {
-            // only to set max depth
-            shanten_num = 6 - pair_num;
-            // push later
+        let (chiitoi_shanten_num, chiitoi_shanten_tiles) = self.chiitou_shanten();
+
+        if chiitoi_shanten_num < shanten_num {
+            shanten_num = chiitoi_shanten_num;
             shanten_ret.clear();
         }
-        let (start_shanten_num, start_shanten_tiles) = self.common_shanten();
 
-        let mut cache: BTreeMap<FullTileSet, Option<Vec<Yaku>>> = BTreeMap::new();
-        let mut search_queue = VecDeque::new();
-        search_queue.push_back((start_shanten_num, T_INVALID, *self, start_shanten_tiles));
-        while let Some((shanten_num, first_income, ready_set, shanten_tiles)) =
-            search_queue.pop_front()
-        {
-            for draw_tile in shanten_tiles {
-                let full_set = ready_set.draw(draw_tile);
-                // cache
-                let yakus = if let Some(yakus) = cache.get(&full_set) {
-                    yakus.clone()
-                } else {
+        let (common_shanten_num, common_shanten_tiles) = self.common_shanten();
+
+        if common_shanten_num < shanten_num {
+            // common
+            shanten_num = common_shanten_num;
+            shanten_ret.clear();
+            let mut search_queue = VecDeque::new();
+            search_queue.push_back((common_shanten_num, T_INVALID, *self, common_shanten_tiles));
+            while let Some((cur_shanten_num, first_income, ready_set, cur_shanten_tiles)) =
+                search_queue.pop_front()
+            {
+                for draw_tile in cur_shanten_tiles {
+                    let full_set = ready_set.draw(draw_tile);
                     let yakus = full_set.yakus();
-                    cache.insert(full_set, yakus.clone());
-                    yakus
-                };
 
-                if let Some(yakus) = yakus {
-                    shanten_ret.push((first_income, yakus));
-                } else {
-                    for discard_tile in full_set.tiles.into_iter().filter(|&tile| tile != draw_tile)
-                    {
-                        let next_ready_set = full_set.discard(discard_tile).unwrap();
-                        let (next_shanten_num, next_shanten_tiles) =
-                            next_ready_set.common_shanten();
-                        if next_shanten_num < shanten_num {
-                            search_queue.push_back((
-                                next_shanten_num,
-                                if first_income == T_INVALID {
-                                    draw_tile
-                                } else {
-                                    first_income
-                                },
-                                next_ready_set,
-                                next_shanten_tiles,
-                            ));
+                    if let Some(yakus) = yakus {
+                        shanten_ret.push((first_income, yakus));
+                    } else if cur_shanten_num != 0 {
+                        for discard_tile in
+                            full_set.tiles.into_iter().filter(|&tile| tile != draw_tile)
+                        {
+                            let next_ready_set = full_set.discard(discard_tile).unwrap();
+                            let (next_shanten_num, next_shanten_tiles) =
+                                next_ready_set.common_shanten();
+                            if next_shanten_num < cur_shanten_num {
+                                search_queue.push_back((
+                                    next_shanten_num,
+                                    if first_income == T_INVALID {
+                                        draw_tile
+                                    } else {
+                                        first_income
+                                    },
+                                    next_ready_set,
+                                    next_shanten_tiles,
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+        } else if shanten_ret.is_empty() {
+            // chiitoi
+            let mut search_queue = VecDeque::new();
+            search_queue.push_back((shanten_num, T_INVALID, *self, chiitoi_shanten_tiles));
+            while let Some((cur_shanten_num, first_income, ready_set, cur_shanten_tiles)) =
+                search_queue.pop_front()
+            {
+                for draw_tile in cur_shanten_tiles {
+                    let full_set = ready_set.draw(draw_tile);
+                    let yakus = full_set.yakus();
+
+                    if let Some(yakus) = yakus {
+                        shanten_ret.push((first_income, yakus));
+                    } else if cur_shanten_num != 0 {
+                        for discard_tile in
+                            full_set.tiles.into_iter().filter(|&tile| tile != draw_tile)
+                        {
+                            let next_ready_set = full_set.discard(discard_tile).unwrap();
+                            let (next_shanten_num, next_shanten_tiles) =
+                                next_ready_set.chiitou_shanten();
+                            if next_shanten_num < cur_shanten_num {
+                                search_queue.push_back((
+                                    next_shanten_num,
+                                    if first_income == T_INVALID {
+                                        draw_tile
+                                    } else {
+                                        first_income
+                                    },
+                                    next_ready_set,
+                                    next_shanten_tiles,
+                                ));
+                            }
                         }
                     }
                 }
@@ -198,7 +223,35 @@ impl ReadyTileSet {
         }
     }
 
-    /// calculate current shanten num and tiles that could forward shanten
+    /// calculate shanten num and tiles that could forward shanten in chiitoi pattern
+    fn chiitou_shanten(&self) -> (u8, Vec<Tile>) {
+        let mut pair_tile = vec![];
+        let mut index = 0;
+        while index < 12 {
+            if self.tiles[index] == self.tiles[index + 1] {
+                if let Some(&last) = pair_tile.last() {
+                    if last != self.tiles[index] {
+                        pair_tile.push(self.tiles[index]);
+                    }
+                } else {
+                    pair_tile.push(self.tiles[index]);
+                }
+                index += 2;
+            } else {
+                index += 1;
+            }
+        }
+        (
+            6 - pair_tile.len() as u8,
+            self.tiles[..13]
+                .iter()
+                .filter(|&&tile| !pair_tile.iter().any(|&t| t == tile))
+                .cloned()
+                .collect(),
+        )
+    }
+
+    /// calculate shanten num and tiles that could forward shanten in common pattern
     fn common_shanten(&self) -> (u8, Vec<Tile>) {
         let mut tile_left = BTreeMap::new();
         for &tile in &self.tiles[..13] {
@@ -213,9 +266,10 @@ impl ReadyTileSet {
                 pattern.iter().for_each(|block| {
                     if block.pair().is_some() {
                         pair += 1;
+                        incompleted += 1;
                     } else if block.triplet().or_else(|| block.sequence()).is_some() {
                         completed += 1;
-                    } else {
+                    } else if block.len() == 2 {
                         incompleted += 1;
                     }
                 });

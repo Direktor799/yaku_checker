@@ -11,5 +11,3 @@ mod yaku;
 pub use ready_set::ReadyTileSet;
 pub use tile::*;
 pub use yaku::Yaku;
-
-// TODO: non-recursion pattern searching & cache result hashes for better pruning
