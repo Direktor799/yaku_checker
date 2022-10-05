@@ -66,14 +66,10 @@ impl Display for ReadyTileSet {
 impl ReadyTileSet {
     /// a very heavy search for all possible situation
     pub fn check(&self) -> (u8, Vec<(Tile, Vec<Yaku>)>) {
+        // check tenpai
         let tenpai_ret = ALL_TILES
             .into_iter()
-            .filter_map(|draw_tile| {
-                self.maybe_effective(draw_tile)
-                    .then_some(draw_tile)
-                    .and_then(|draw_tile| self.draw(draw_tile).yakus())
-                    .map(|yakus| (draw_tile, yakus))
-            })
+            .filter_map(|draw_tile| self.draw(draw_tile).yakus().map(|yakus| (draw_tile, yakus)))
             .collect::<Vec<_>>();
         if !tenpai_ret.is_empty() {
             return (0, tenpai_ret);
@@ -105,7 +101,13 @@ impl ReadyTileSet {
         let mut shanten_ret = if extras.is_empty() {
             all_yaochuus
                 .iter()
-                .map(|&tile| (tile, vec![Yaku::Kokushimusou13]))
+                .map(|&tile| {
+                    if yaochuus.iter().any(|&t| t == tile) {
+                        (tile, vec![Yaku::Kokushimusou])
+                    } else {
+                        (tile, vec![Yaku::Kokushimusou13])
+                    }
+                })
                 .collect::<Vec<_>>()
         } else {
             all_yaochuus
@@ -132,18 +134,17 @@ impl ReadyTileSet {
             // push later
             shanten_ret.clear();
         }
+        let (start_shanten_num, start_shanten_tiles) = self.common_shanten();
 
         let mut cache: BTreeMap<FullTileSet, Option<Vec<Yaku>>> = BTreeMap::new();
         let mut search_queue = VecDeque::new();
-        search_queue.push_back((0u8, T_INVALID, *self));
-        while let Some((depth, first_income, ready_set)) = search_queue.pop_front() {
-            if depth > shanten_num {
-                break;
-            }
-
-            let (common_shanten_num, common_shanten_tiles) = self.common_shanten();
-            for draw_tile in common_shanten_tiles {
+        search_queue.push_back((start_shanten_num, T_INVALID, *self, start_shanten_tiles));
+        while let Some((shanten_num, first_income, ready_set, shanten_tiles)) =
+            search_queue.pop_front()
+        {
+            for draw_tile in shanten_tiles {
                 let full_set = ready_set.draw(draw_tile);
+                // cache
                 let yakus = if let Some(yakus) = cache.get(&full_set) {
                     yakus.clone()
                 } else {
@@ -153,24 +154,23 @@ impl ReadyTileSet {
                 };
 
                 if let Some(yakus) = yakus {
-                    if depth < shanten_num {
-                        shanten_ret.clear();
-                    }
-                    shanten_num = depth;
                     shanten_ret.push((first_income, yakus));
                 } else {
                     for discard_tile in full_set.tiles.into_iter().filter(|&tile| tile != draw_tile)
                     {
                         let next_ready_set = full_set.discard(discard_tile).unwrap();
-                        if next_ready_set.common_shanten().0 < common_shanten_num {
+                        let (next_shanten_num, next_shanten_tiles) =
+                            next_ready_set.common_shanten();
+                        if next_shanten_num < shanten_num {
                             search_queue.push_back((
-                                depth + 1,
+                                next_shanten_num,
                                 if first_income == T_INVALID {
                                     draw_tile
                                 } else {
                                     first_income
                                 },
                                 next_ready_set,
+                                next_shanten_tiles,
                             ));
                         }
                     }
@@ -371,11 +371,6 @@ impl ReadyTileSet {
         *tile_left.get_mut(&ks[0]).unwrap() += 1;
 
         ret
-    }
-
-    /// maybe forward shanten
-    fn maybe_effective(&self, draw: Tile) -> bool {
-        self.tiles[..13].iter().any(|&tile| draw.is_related(tile))
     }
 }
 
