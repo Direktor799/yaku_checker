@@ -9,7 +9,7 @@ use crate::{
 };
 use anyhow::{anyhow, Result};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FullTileSet {
     pub(crate) tiles: [Tile; 14],
     pub(crate) last_draw: Tile,

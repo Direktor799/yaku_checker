@@ -2,7 +2,11 @@ use crate::{full_set::FullTileSet, tile::Tile, Yaku, ALL_TILES, T_INVALID};
 use anyhow::{anyhow, Error, Result};
 use once_cell::sync::Lazy;
 use regex::Regex;
-use std::{collections::VecDeque, fmt::Display, str::FromStr};
+use std::{
+    collections::{BTreeMap, VecDeque},
+    fmt::Display,
+    str::FromStr,
+};
 
 static TILESET_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"((ton|nan|shaa|pei|haku|chun|hatsu)|([1-9]+)([psm]))(\d+)?").unwrap()
@@ -129,6 +133,7 @@ impl ReadyTileSet {
             shanten_ret.clear();
         }
 
+        let mut cache: BTreeMap<FullTileSet, Option<Vec<Yaku>>> = BTreeMap::new();
         let mut search_queue = VecDeque::new();
         search_queue.push_back((0u8, T_INVALID, *self));
         while let Some((depth, first_income, ready_set)) = search_queue.pop_front() {
@@ -140,7 +145,15 @@ impl ReadyTileSet {
                 .filter(|&tile| ready_set.maybe_effective(tile))
             {
                 let full_set = ready_set.draw(draw_tile);
-                if let Some(yakus) = full_set.yakus() {
+                let yakus = if let Some(yakus) = cache.get(&full_set) {
+                    yakus.clone()
+                } else {
+                    let yakus = full_set.yakus();
+                    cache.insert(full_set, yakus.clone());
+                    yakus
+                };
+
+                if let Some(yakus) = yakus {
                     if depth < shanten_num {
                         shanten_ret.clear();
                     }
