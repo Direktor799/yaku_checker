@@ -561,7 +561,10 @@ mod tests {
         let pattern = pattern
             .iter()
             .map(|block| {
-                TileBlock::new(&block.iter().map(|s| s.parse().unwrap()).collect::<Vec<_>>())
+                TileBlock::new_unknown(
+                    &block.iter().map(|s| s.parse().unwrap()).collect::<Vec<_>>(),
+                )
+                .unwrap()
             })
             .collect();
         let last_draw = last_draw.parse().unwrap();

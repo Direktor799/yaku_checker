@@ -1,4 +1,4 @@
-use crate::{full_set::FullTileSet, tile::Tile, Yaku, ALL_TILES, T_INVALID};
+use crate::{full_set::FullTileSet, tile::Tile, tile_block::TileBlock, Yaku, ALL_TILES, T_INVALID};
 use anyhow::{anyhow, Error, Result};
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -64,8 +64,8 @@ impl Display for ReadyTileSet {
 }
 
 impl ReadyTileSet {
-    /// a very heavy search
-    pub fn shanten(&self) -> (u8, Vec<(Tile, Vec<Yaku>)>) {
+    /// a very heavy search for all possible situation
+    pub fn check(&self) -> (u8, Vec<(Tile, Vec<Yaku>)>) {
         let tenpai_ret = ALL_TILES
             .into_iter()
             .filter_map(|draw_tile| {
@@ -140,10 +140,9 @@ impl ReadyTileSet {
             if depth > shanten_num {
                 break;
             }
-            for draw_tile in ALL_TILES
-                .into_iter()
-                .filter(|&tile| ready_set.maybe_effective(tile))
-            {
+
+            let (common_shanten_num, common_shanten_tiles) = self.common_shanten();
+            for draw_tile in common_shanten_tiles {
                 let full_set = ready_set.draw(draw_tile);
                 let yakus = if let Some(yakus) = cache.get(&full_set) {
                     yakus.clone()
@@ -160,21 +159,20 @@ impl ReadyTileSet {
                     shanten_num = depth;
                     shanten_ret.push((first_income, yakus));
                 } else {
-                    for discard_tile in full_set
-                        .tiles
-                        .into_iter()
-                        .filter(|&tile| tile != draw_tile && full_set.is_useless(tile))
+                    for discard_tile in full_set.tiles.into_iter().filter(|&tile| tile != draw_tile)
                     {
                         let next_ready_set = full_set.discard(discard_tile).unwrap();
-                        search_queue.push_back((
-                            depth + 1,
-                            if first_income == T_INVALID {
-                                draw_tile
-                            } else {
-                                first_income
-                            },
-                            next_ready_set,
-                        ));
+                        if next_ready_set.common_shanten().0 < common_shanten_num {
+                            search_queue.push_back((
+                                depth + 1,
+                                if first_income == T_INVALID {
+                                    draw_tile
+                                } else {
+                                    first_income
+                                },
+                                next_ready_set,
+                            ));
+                        }
                     }
                 }
             }
@@ -200,8 +198,183 @@ impl ReadyTileSet {
         }
     }
 
+    /// calculate current shanten num and tiles that could forward shanten
+    fn common_shanten(&self) -> (u8, Vec<Tile>) {
+        let mut tile_left = BTreeMap::new();
+        for &tile in &self.tiles[..13] {
+            *tile_left.entry(tile).or_default() += 1;
+        }
+        let mut patterns = Self::find_common_patterns(&mut tile_left, 4, 1)
+            .into_iter()
+            .map(|pattern| {
+                let mut pair = 0;
+                let mut completed = 0;
+                let mut incompleted = 0;
+                pattern.iter().for_each(|block| {
+                    if block.pair().is_some() {
+                        pair += 1;
+                    } else if block.triplet().or_else(|| block.sequence()).is_some() {
+                        completed += 1;
+                    } else {
+                        incompleted += 1;
+                    }
+                });
+                let q = if completed + incompleted <= 4 || pair != 0 {
+                    1
+                } else {
+                    0
+                };
+                let shanten_num =
+                    9 - 2 * completed - incompleted + (completed + incompleted - 5).max(0) - q;
+                (pattern, shanten_num as u8)
+            })
+            .collect::<Vec<_>>();
+
+        patterns.sort_by_key(|(_, shanten_num)| *shanten_num);
+
+        let shanten_num = patterns[0].1;
+        let mut incomes = patterns
+            .into_iter()
+            .take_while(|(_, num)| *num == shanten_num)
+            .flat_map(|(pattern, _)| {
+                pattern
+                    .into_iter()
+                    .filter_map(|block| block.income())
+                    .flatten()
+            })
+            .collect::<Vec<_>>();
+        incomes.sort();
+        incomes.dedup();
+        (shanten_num, incomes)
+    }
+
+    fn find_common_patterns(
+        tile_left: &mut BTreeMap<Tile, u8>,
+        group_left: u8,
+        pair_left: u8,
+    ) -> Vec<Vec<TileBlock>> {
+        let ks = tile_left
+            .iter()
+            .filter_map(|(&k, &v)| if v > 0 { Some(k) } else { None })
+            .take(3)
+            .collect::<Vec<_>>();
+        if ks.is_empty() {
+            return vec![vec![]];
+        }
+        let mut ret = vec![];
+
+        // continue with a pair
+        if pair_left > 0 && *tile_left.get(&ks[0]).unwrap() >= 2 {
+            let current = TileBlock::new_pair([ks[0]; 2]).unwrap();
+            *tile_left.get_mut(&ks[0]).unwrap() -= 2;
+            Self::find_common_patterns(tile_left, group_left, pair_left - 1)
+                .into_iter()
+                .map(|mut v| {
+                    v.push(current);
+                    v
+                })
+                .for_each(|v| ret.push(v));
+            *tile_left.get_mut(&ks[0]).unwrap() += 2;
+        }
+
+        // continue with a triplet
+        if group_left > 0 && *tile_left.get(&ks[0]).unwrap() >= 3 {
+            let current = TileBlock::new_triplet([ks[0]; 3]).unwrap();
+            *tile_left.get_mut(&ks[0]).unwrap() -= 3;
+            Self::find_common_patterns(tile_left, group_left - 1, pair_left)
+                .into_iter()
+                .map(|mut v| {
+                    v.push(current);
+                    v
+                })
+                .for_each(|v| ret.push(v));
+            *tile_left.get_mut(&ks[0]).unwrap() += 3;
+        }
+
+        // continue with a sequence
+        if group_left > 0 && ks.len() >= 3 {
+            if let Ok(current) = TileBlock::new_sequence([ks[0], ks[1], ks[2]]) {
+                *tile_left.get_mut(&current.tiles()[0]).unwrap() -= 1;
+                *tile_left.get_mut(&current.tiles()[1]).unwrap() -= 1;
+                *tile_left.get_mut(&current.tiles()[2]).unwrap() -= 1;
+                Self::find_common_patterns(tile_left, group_left - 1, pair_left)
+                    .into_iter()
+                    .map(|mut v| {
+                        v.push(current);
+                        v
+                    })
+                    .for_each(|v| ret.push(v));
+                *tile_left.get_mut(&current.tiles()[0]).unwrap() += 1;
+                *tile_left.get_mut(&current.tiles()[1]).unwrap() += 1;
+                *tile_left.get_mut(&current.tiles()[2]).unwrap() += 1;
+            }
+        }
+
+        // continue with a incompleted AA
+        if group_left > 0 && *tile_left.get(&ks[0]).unwrap() >= 2 {
+            let current = TileBlock::new_incompleted([ks[0]; 2]).unwrap();
+            *tile_left.get_mut(&ks[0]).unwrap() -= 2;
+            Self::find_common_patterns(tile_left, group_left, pair_left)
+                .into_iter()
+                .map(|mut v| {
+                    v.push(current);
+                    v
+                })
+                .for_each(|v| ret.push(v));
+            *tile_left.get_mut(&ks[0]).unwrap() += 2;
+        }
+
+        // continue with a incompleted AB
+        if group_left > 0 && ks.len() >= 2 {
+            if let Ok(current) = TileBlock::new_incompleted([ks[0], ks[1]]) {
+                *tile_left.get_mut(&current.tiles()[0]).unwrap() -= 1;
+                *tile_left.get_mut(&current.tiles()[1]).unwrap() -= 1;
+                Self::find_common_patterns(tile_left, group_left, pair_left)
+                    .into_iter()
+                    .map(|mut v| {
+                        v.push(current);
+                        v
+                    })
+                    .for_each(|v| ret.push(v));
+                *tile_left.get_mut(&current.tiles()[0]).unwrap() += 1;
+                *tile_left.get_mut(&current.tiles()[1]).unwrap() += 1;
+            }
+        }
+
+        // continue with a incompleted AC
+        if group_left > 0 && ks.len() >= 3 {
+            if let Ok(current) = TileBlock::new_incompleted([ks[0], ks[2]]) {
+                *tile_left.get_mut(&current.tiles()[0]).unwrap() -= 1;
+                *tile_left.get_mut(&current.tiles()[1]).unwrap() -= 1;
+                Self::find_common_patterns(tile_left, group_left, pair_left)
+                    .into_iter()
+                    .map(|mut v| {
+                        v.push(current);
+                        v
+                    })
+                    .for_each(|v| ret.push(v));
+                *tile_left.get_mut(&current.tiles()[0]).unwrap() += 1;
+                *tile_left.get_mut(&current.tiles()[1]).unwrap() += 1;
+            }
+        }
+
+        // continue without this kind of tile
+        *tile_left.get_mut(&ks[0]).unwrap() -= 1;
+        let current = TileBlock::new_orphan(ks[0]).unwrap();
+        Self::find_common_patterns(tile_left, group_left, pair_left)
+            .into_iter()
+            .map(|mut v| {
+                v.push(current);
+                v
+            })
+            .for_each(|v| ret.push(v));
+        *tile_left.get_mut(&ks[0]).unwrap() += 1;
+
+        ret
+    }
+
     /// maybe forward shanten
-    pub fn maybe_effective(&self, draw: Tile) -> bool {
+    fn maybe_effective(&self, draw: Tile) -> bool {
         self.tiles[..13].iter().any(|&tile| draw.is_related(tile))
     }
 }

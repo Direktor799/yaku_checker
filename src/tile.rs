@@ -169,6 +169,22 @@ impl Tile {
     pub fn number(&self) -> u8 {
         self.0 & 0xf
     }
+
+    pub fn next(&self) -> Option<Tile> {
+        if self.is_numbered() && self.number() < 9 {
+            Some(Tile(self.0 + 1))
+        } else {
+            None
+        }
+    }
+
+    pub fn prev(&self) -> Option<Tile> {
+        if self.is_numbered() && self.number() > 1 {
+            Some(Tile(self.0 - 1))
+        } else {
+            None
+        }
+    }
 }
 
 #[cfg(test)]
