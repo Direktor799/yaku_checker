@@ -13,12 +13,6 @@ pub struct ReadyTileSet {
     pub(crate) tiles: [Tile; 14],
 }
 
-#[derive(Debug)]
-pub enum ReadyState {
-    Tenpai(Vec<(Tile, Vec<Yaku>)>),
-    Shanten((u8, Vec<Vec<Yaku>>)),
-}
-
 impl FromStr for ReadyTileSet {
     type Err = Error;
 
@@ -67,7 +61,7 @@ impl Display for ReadyTileSet {
 
 impl ReadyTileSet {
     /// a very heavy search
-    pub fn shanten(&self) -> ReadyState {
+    pub fn shanten(&self) -> (u8, Vec<(Tile, Vec<Yaku>)>) {
         let tenpai_ret = ALL_TILES
             .into_iter()
             .filter_map(|draw_tile| {
@@ -78,22 +72,43 @@ impl ReadyTileSet {
             })
             .collect::<Vec<_>>();
         if !tenpai_ret.is_empty() {
-            return ReadyState::Tenpai(tenpai_ret);
+            return (0, tenpai_ret);
         }
 
         // check kokushi shanten
         let mut yaochuus = self.tiles[..13]
             .iter()
             .filter(|&&tile| tile.is_terminal() || tile.is_honor())
+            .cloned()
             .collect::<Vec<_>>();
-        let bonus = yaochuus.windows(2).any(|tiles| tiles[0] == tiles[1]);
+        let extras = yaochuus
+            .windows(2)
+            .filter_map(|tiles| {
+                if tiles[0] == tiles[1] {
+                    Some(tiles[0])
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
         yaochuus.dedup();
         let distinct_yaochuu_num = yaochuus.len() as u8;
-        let mut shanten_num = 13 - (distinct_yaochuu_num + bonus as u8);
-        let mut shanten_ret = if bonus {
-            vec![vec![Yaku::Kokushimusou]]
+        let mut shanten_num = 13 - (distinct_yaochuu_num + extras.is_empty() as u8);
+        let all_yaochuus = ALL_TILES
+            .into_iter()
+            .filter(|tile| tile.is_honor() || tile.is_terminal())
+            .collect::<Vec<_>>();
+        let mut shanten_ret = if extras.is_empty() {
+            all_yaochuus
+                .iter()
+                .map(|&tile| (tile, vec![Yaku::Kokushimusou13]))
+                .collect::<Vec<_>>()
         } else {
-            vec![vec![Yaku::Kokushimusou13]]
+            all_yaochuus
+                .iter()
+                .filter(|&&tile| !yaochuus.iter().any(|&t| t == tile))
+                .map(|&tile| (tile, vec![Yaku::Kokushimusou]))
+                .collect()
         };
 
         // check chiitoi shanten
@@ -115,8 +130,8 @@ impl ReadyTileSet {
         }
 
         let mut search_queue = VecDeque::new();
-        search_queue.push_back((0u8, *self));
-        while let Some((depth, ready_set)) = search_queue.pop_front() {
+        search_queue.push_back((0u8, T_INVALID, *self));
+        while let Some((depth, first_income, ready_set)) = search_queue.pop_front() {
             if depth > shanten_num {
                 break;
             }
@@ -130,7 +145,7 @@ impl ReadyTileSet {
                         shanten_ret.clear();
                     }
                     shanten_num = depth;
-                    shanten_ret.push(yakus);
+                    shanten_ret.push((first_income, yakus));
                 } else {
                     for discard_tile in full_set
                         .tiles
@@ -138,14 +153,22 @@ impl ReadyTileSet {
                         .filter(|&tile| tile != draw_tile && full_set.is_useless(tile))
                     {
                         let next_ready_set = full_set.discard(discard_tile).unwrap();
-                        search_queue.push_back((depth + 1, next_ready_set));
+                        search_queue.push_back((
+                            depth + 1,
+                            if first_income == T_INVALID {
+                                draw_tile
+                            } else {
+                                first_income
+                            },
+                            next_ready_set,
+                        ));
                     }
                 }
             }
         }
         shanten_ret.sort();
         shanten_ret.dedup();
-        ReadyState::Shanten((shanten_num, shanten_ret))
+        (shanten_num, shanten_ret)
     }
 
     pub fn draw(self, tile: Tile) -> FullTileSet {
