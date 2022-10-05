@@ -93,44 +93,83 @@ impl ReadyTileSet {
             .collect::<Vec<_>>();
         yaochuus.dedup();
         let distinct_yaochuu_num = yaochuus.len() as u8;
-        let mut shanten_num = 13 - (distinct_yaochuu_num + extras.is_empty() as u8);
-        let all_yaochuus = ALL_TILES
-            .into_iter()
-            .filter(|tile| tile.is_honor() || tile.is_terminal())
-            .collect::<Vec<_>>();
-        let mut shanten_ret = if extras.is_empty() {
-            all_yaochuus
-                .iter()
-                .map(|&tile| {
-                    if yaochuus.iter().any(|&t| t == tile) {
-                        (tile, vec![Yaku::Kokushimusou])
-                    } else {
-                        (tile, vec![Yaku::Kokushimusou13])
-                    }
-                })
-                .collect::<Vec<_>>()
-        } else {
-            all_yaochuus
-                .iter()
-                .filter(|&&tile| !yaochuus.iter().any(|&t| t == tile))
-                .map(|&tile| (tile, vec![Yaku::Kokushimusou]))
-                .collect()
-        };
 
-        // check chiitoi shanten
+        // all three kind
+        let kokushi_shanten_num = 13 - (distinct_yaochuu_num + extras.is_empty() as u8);
+        let (common_shanten_num, common_shanten_tiles) = self.common_shanten();
         let (chiitoi_shanten_num, chiitoi_shanten_tiles) = self.chiitou_shanten();
 
-        if chiitoi_shanten_num < shanten_num {
-            shanten_num = chiitoi_shanten_num;
-            shanten_ret.clear();
+        let shanten_num = kokushi_shanten_num
+            .min(common_shanten_num)
+            .min(chiitoi_shanten_num);
+        let mut shanten_ret = vec![];
+
+        // kokushi
+        if kokushi_shanten_num == shanten_num {
+            let all_yaochuus = ALL_TILES
+                .into_iter()
+                .filter(|tile| tile.is_honor() || tile.is_terminal())
+                .collect::<Vec<_>>();
+            shanten_ret = if extras.is_empty() {
+                all_yaochuus
+                    .iter()
+                    .map(|&tile| {
+                        if yaochuus.iter().any(|&t| t == tile) {
+                            (tile, vec![Yaku::Kokushimusou])
+                        } else {
+                            (tile, vec![Yaku::Kokushimusou13])
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            } else {
+                all_yaochuus
+                    .iter()
+                    .filter(|&&tile| !yaochuus.iter().any(|&t| t == tile))
+                    .map(|&tile| (tile, vec![Yaku::Kokushimusou]))
+                    .collect()
+            };
         }
 
-        let (common_shanten_num, common_shanten_tiles) = self.common_shanten();
+        // chiitoi
+        if chiitoi_shanten_num == shanten_num {
+            let mut search_queue = VecDeque::new();
+            search_queue.push_back((chiitoi_shanten_num, T_INVALID, *self, chiitoi_shanten_tiles));
+            while let Some((cur_shanten_num, first_income, ready_set, cur_shanten_tiles)) =
+                search_queue.pop_front()
+            {
+                for draw_tile in cur_shanten_tiles {
+                    let full_set = ready_set.draw(draw_tile);
+                    let yakus = full_set.yakus();
 
-        if common_shanten_num < shanten_num {
-            // common
-            shanten_num = common_shanten_num;
-            shanten_ret.clear();
+                    if let Some(yakus) = yakus {
+                        shanten_ret.push((first_income, yakus));
+                    } else if cur_shanten_num != 0 {
+                        for discard_tile in
+                            full_set.tiles.into_iter().filter(|&tile| tile != draw_tile)
+                        {
+                            let next_ready_set = full_set.discard(discard_tile).unwrap();
+                            let (next_shanten_num, next_shanten_tiles) =
+                                next_ready_set.chiitou_shanten();
+                            if next_shanten_num < cur_shanten_num {
+                                search_queue.push_back((
+                                    next_shanten_num,
+                                    if first_income == T_INVALID {
+                                        draw_tile
+                                    } else {
+                                        first_income
+                                    },
+                                    next_ready_set,
+                                    next_shanten_tiles,
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // common
+        if common_shanten_num == shanten_num {
             let mut search_queue = VecDeque::new();
             search_queue.push_back((common_shanten_num, T_INVALID, *self, common_shanten_tiles));
             while let Some((cur_shanten_num, first_income, ready_set, cur_shanten_tiles)) =
@@ -165,43 +204,8 @@ impl ReadyTileSet {
                     }
                 }
             }
-        } else if shanten_ret.is_empty() {
-            // chiitoi
-            let mut search_queue = VecDeque::new();
-            search_queue.push_back((shanten_num, T_INVALID, *self, chiitoi_shanten_tiles));
-            while let Some((cur_shanten_num, first_income, ready_set, cur_shanten_tiles)) =
-                search_queue.pop_front()
-            {
-                for draw_tile in cur_shanten_tiles {
-                    let full_set = ready_set.draw(draw_tile);
-                    let yakus = full_set.yakus();
-
-                    if let Some(yakus) = yakus {
-                        shanten_ret.push((first_income, yakus));
-                    } else if cur_shanten_num != 0 {
-                        for discard_tile in
-                            full_set.tiles.into_iter().filter(|&tile| tile != draw_tile)
-                        {
-                            let next_ready_set = full_set.discard(discard_tile).unwrap();
-                            let (next_shanten_num, next_shanten_tiles) =
-                                next_ready_set.chiitou_shanten();
-                            if next_shanten_num < cur_shanten_num {
-                                search_queue.push_back((
-                                    next_shanten_num,
-                                    if first_income == T_INVALID {
-                                        draw_tile
-                                    } else {
-                                        first_income
-                                    },
-                                    next_ready_set,
-                                    next_shanten_tiles,
-                                ));
-                            }
-                        }
-                    }
-                }
-            }
         }
+
         shanten_ret.sort();
         shanten_ret.dedup();
         (shanten_num, shanten_ret)
