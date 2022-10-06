@@ -1,5 +1,9 @@
 use crate::tile::Tile;
-use std::{iter::Sum, ops::Add};
+use std::{
+    fmt::{Debug, Display},
+    iter::Sum,
+    ops::Add,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Yaku {
@@ -95,6 +99,12 @@ pub enum Yaku {
     Junseichuurenpoutou,
     /// 大四喜
     Daisuushii,
+}
+
+impl Display for Yaku {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        <Self as Debug>::fmt(self, f)
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
