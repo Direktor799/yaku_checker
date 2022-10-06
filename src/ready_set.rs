@@ -96,13 +96,16 @@ impl ReadyTileSet {
 
         // all three kind
         let kokushi_shanten_num = 13 - (distinct_yaochuu_num + extras.is_empty() as u8);
-        let (common_shanten_num, common_shanten_tiles) = self.common_shanten();
-        let (chiitoi_shanten_num, chiitoi_shanten_tiles) = self.chiitou_shanten();
+        let common_shanten_num = self.common_shanten();
+        let chiitoi_shanten_num = self.chiitou_shanten();
 
         let shanten_num = kokushi_shanten_num
             .min(common_shanten_num)
             .min(chiitoi_shanten_num);
         let mut shanten_ret = vec![];
+        if shanten_num > 2 {
+            return (shanten_num, shanten_ret);
+        }
 
         // kokushi
         if kokushi_shanten_num == shanten_num {
@@ -133,11 +136,12 @@ impl ReadyTileSet {
         // chiitoi
         if chiitoi_shanten_num == shanten_num {
             let mut search_queue = VecDeque::new();
-            search_queue.push_back((chiitoi_shanten_num, T_INVALID, *self, chiitoi_shanten_tiles));
-            while let Some((cur_shanten_num, first_income, ready_set, cur_shanten_tiles)) =
-                search_queue.pop_front()
-            {
-                for draw_tile in cur_shanten_tiles {
+            search_queue.push_back((chiitoi_shanten_num, T_INVALID, *self));
+            while let Some((cur_shanten_num, first_income, ready_set)) = search_queue.pop_front() {
+                for draw_tile in ALL_TILES
+                    .into_iter()
+                    .filter(|&tile| ready_set.maybe_effective(tile))
+                {
                     let full_set = ready_set.draw(draw_tile);
                     let yakus = full_set.yakus();
 
@@ -148,8 +152,7 @@ impl ReadyTileSet {
                             full_set.tiles.into_iter().filter(|&tile| tile != draw_tile)
                         {
                             let next_ready_set = full_set.discard(discard_tile).unwrap();
-                            let (next_shanten_num, next_shanten_tiles) =
-                                next_ready_set.chiitou_shanten();
+                            let next_shanten_num = next_ready_set.chiitou_shanten();
                             if next_shanten_num < cur_shanten_num {
                                 search_queue.push_back((
                                     next_shanten_num,
@@ -159,7 +162,6 @@ impl ReadyTileSet {
                                         first_income
                                     },
                                     next_ready_set,
-                                    next_shanten_tiles,
                                 ));
                             }
                         }
@@ -171,11 +173,12 @@ impl ReadyTileSet {
         // common
         if common_shanten_num == shanten_num {
             let mut search_queue = VecDeque::new();
-            search_queue.push_back((common_shanten_num, T_INVALID, *self, common_shanten_tiles));
-            while let Some((cur_shanten_num, first_income, ready_set, cur_shanten_tiles)) =
-                search_queue.pop_front()
-            {
-                for draw_tile in cur_shanten_tiles {
+            search_queue.push_back((common_shanten_num, T_INVALID, *self));
+            while let Some((cur_shanten_num, first_income, ready_set)) = search_queue.pop_front() {
+                for draw_tile in ALL_TILES
+                    .into_iter()
+                    .filter(|&tile| ready_set.maybe_effective(tile))
+                {
                     let full_set = ready_set.draw(draw_tile);
                     let yakus = full_set.yakus();
 
@@ -186,8 +189,7 @@ impl ReadyTileSet {
                             full_set.tiles.into_iter().filter(|&tile| tile != draw_tile)
                         {
                             let next_ready_set = full_set.discard(discard_tile).unwrap();
-                            let (next_shanten_num, next_shanten_tiles) =
-                                next_ready_set.common_shanten();
+                            let next_shanten_num = next_ready_set.common_shanten();
                             if next_shanten_num < cur_shanten_num {
                                 search_queue.push_back((
                                     next_shanten_num,
@@ -197,7 +199,6 @@ impl ReadyTileSet {
                                         first_income
                                     },
                                     next_ready_set,
-                                    next_shanten_tiles,
                                 ));
                             }
                         }
@@ -228,7 +229,7 @@ impl ReadyTileSet {
     }
 
     /// calculate shanten num and tiles that could forward shanten in chiitoi pattern
-    fn chiitou_shanten(&self) -> (u8, Vec<Tile>) {
+    fn chiitou_shanten(&self) -> u8 {
         let mut pair_tile = vec![];
         let mut index = 0;
         while index < 12 {
@@ -245,190 +246,130 @@ impl ReadyTileSet {
                 index += 1;
             }
         }
-        (
-            6 - pair_tile.len() as u8,
-            self.tiles[..13]
-                .iter()
-                .filter(|&&tile| !pair_tile.iter().any(|&t| t == tile))
-                .cloned()
-                .collect(),
-        )
+        6 - pair_tile.len() as u8
     }
 
     /// calculate shanten num and tiles that could forward shanten in common pattern
-    fn common_shanten(&self) -> (u8, Vec<Tile>) {
+    fn common_shanten(&self) -> u8 {
         let mut tile_left = BTreeMap::new();
         for &tile in &self.tiles[..13] {
             *tile_left.entry(tile).or_default() += 1;
         }
-        let mut patterns = Self::find_common_patterns(&mut tile_left, 4, 1)
-            .into_iter()
-            .map(|pattern| {
-                let mut pair = 0;
-                let mut completed = 0;
-                let mut incompleted = 0;
-                pattern.iter().for_each(|block| {
-                    if block.pair().is_some() {
-                        pair += 1;
-                        incompleted += 1;
-                    } else if block.triplet().or_else(|| block.sequence()).is_some() {
-                        completed += 1;
-                    } else if block.len() == 2 {
-                        incompleted += 1;
-                    }
-                });
-                let q = if completed + incompleted <= 4 || pair != 0 {
-                    1
-                } else {
-                    0
-                };
-                let shanten_num =
-                    9 - 2 * completed - incompleted + (completed + incompleted - 5).max(0) - q;
-                (pattern, shanten_num as u8)
-            })
-            .collect::<Vec<_>>();
 
-        patterns.sort_by_key(|(_, shanten_num)| *shanten_num);
-
-        let shanten_num = patterns[0].1;
-        let mut incomes = patterns
-            .into_iter()
-            .take_while(|(_, num)| *num == shanten_num)
-            .flat_map(|(pattern, _)| {
-                pattern
-                    .into_iter()
-                    .filter_map(|block| block.income())
-                    .flatten()
-            })
-            .collect::<Vec<_>>();
-        incomes.sort();
-        incomes.dedup();
-        (shanten_num, incomes)
+        let mut min_shanten = 8;
+        Self::find_common_patterns(&mut tile_left, 0, 0, false, &mut min_shanten);
+        min_shanten
     }
 
     fn find_common_patterns(
         tile_left: &mut BTreeMap<Tile, u8>,
-        group_left: u8,
-        pair_left: u8,
-    ) -> Vec<Vec<TileBlock>> {
-        let ks = tile_left
-            .iter()
-            .filter_map(|(&k, &v)| if v > 0 { Some(k) } else { None })
-            .take(3)
-            .collect::<Vec<_>>();
-        if ks.is_empty() {
-            return vec![vec![]];
+        completed: u8,
+        incompleted: u8,
+        have_pair: bool,
+        min_shanten: &mut u8,
+    ) {
+        if completed + incompleted - have_pair as u8 > 4 {
+            return;
         }
-        let mut ret = vec![];
 
-        // continue with a pair
-        if pair_left > 0 && *tile_left.get(&ks[0]).unwrap() >= 2 {
-            let current = TileBlock::new_pair([ks[0]; 2]).unwrap();
-            *tile_left.get_mut(&ks[0]).unwrap() -= 2;
-            Self::find_common_patterns(tile_left, group_left, pair_left - 1)
-                .into_iter()
-                .map(|mut v| {
-                    v.push(current);
-                    v
-                })
-                .for_each(|v| ret.push(v));
-            *tile_left.get_mut(&ks[0]).unwrap() += 2;
+        let kvs = tile_left
+            .iter()
+            .filter_map(|(&k, &v)| if v > 0 { Some((k, v)) } else { None })
+            .collect::<Vec<_>>();
+
+        let current_shanten = 8 - 2 * completed - incompleted;
+        *min_shanten = (*min_shanten).min(current_shanten);
+        if kvs.is_empty() {
+            return;
+        }
+
+        let tile_left_num = kvs.iter().map(|(_, v)| *v).sum::<u8>();
+        if tile_left_num / 3 * 2 + (tile_left_num % 3) / 2 < current_shanten - *min_shanten {
+            return;
         }
 
         // continue with a triplet
-        if group_left > 0 && *tile_left.get(&ks[0]).unwrap() >= 3 {
-            let current = TileBlock::new_triplet([ks[0]; 3]).unwrap();
-            *tile_left.get_mut(&ks[0]).unwrap() -= 3;
-            Self::find_common_patterns(tile_left, group_left - 1, pair_left)
-                .into_iter()
-                .map(|mut v| {
-                    v.push(current);
-                    v
-                })
-                .for_each(|v| ret.push(v));
-            *tile_left.get_mut(&ks[0]).unwrap() += 3;
+        if *tile_left.get(&kvs[0].0).unwrap() >= 3 {
+            *tile_left.get_mut(&kvs[0].0).unwrap() -= 3;
+            Self::find_common_patterns(
+                tile_left,
+                completed + 1,
+                incompleted,
+                have_pair,
+                min_shanten,
+            );
+            *tile_left.get_mut(&kvs[0].0).unwrap() += 3;
         }
 
         // continue with a sequence
-        if group_left > 0 && ks.len() >= 3 {
-            if let Ok(current) = TileBlock::new_sequence([ks[0], ks[1], ks[2]]) {
+        if kvs.len() >= 3 {
+            if let Ok(current) = TileBlock::new_sequence([kvs[0].0, kvs[1].0, kvs[2].0]) {
                 *tile_left.get_mut(&current.tiles()[0]).unwrap() -= 1;
                 *tile_left.get_mut(&current.tiles()[1]).unwrap() -= 1;
                 *tile_left.get_mut(&current.tiles()[2]).unwrap() -= 1;
-                Self::find_common_patterns(tile_left, group_left - 1, pair_left)
-                    .into_iter()
-                    .map(|mut v| {
-                        v.push(current);
-                        v
-                    })
-                    .for_each(|v| ret.push(v));
+                Self::find_common_patterns(
+                    tile_left,
+                    completed + 1,
+                    incompleted,
+                    have_pair,
+                    min_shanten,
+                );
                 *tile_left.get_mut(&current.tiles()[0]).unwrap() += 1;
                 *tile_left.get_mut(&current.tiles()[1]).unwrap() += 1;
                 *tile_left.get_mut(&current.tiles()[2]).unwrap() += 1;
             }
         }
 
-        // continue with a incompleted AA
-        if group_left > 0 && *tile_left.get(&ks[0]).unwrap() >= 2 {
-            let current = TileBlock::new_incompleted([ks[0]; 2]).unwrap();
-            *tile_left.get_mut(&ks[0]).unwrap() -= 2;
-            Self::find_common_patterns(tile_left, group_left, pair_left)
-                .into_iter()
-                .map(|mut v| {
-                    v.push(current);
-                    v
-                })
-                .for_each(|v| ret.push(v));
-            *tile_left.get_mut(&ks[0]).unwrap() += 2;
+        // continue with a pair
+        if *tile_left.get(&kvs[0].0).unwrap() >= 2 {
+            *tile_left.get_mut(&kvs[0].0).unwrap() -= 2;
+            Self::find_common_patterns(tile_left, completed, incompleted + 1, true, min_shanten);
+            *tile_left.get_mut(&kvs[0].0).unwrap() += 2;
         }
 
         // continue with a incompleted AB
-        if group_left > 0 && ks.len() >= 2 {
-            if let Ok(current) = TileBlock::new_incompleted([ks[0], ks[1]]) {
+        if kvs.len() >= 2 {
+            if let Ok(current) = TileBlock::new_incompleted([kvs[0].0, kvs[1].0]) {
                 *tile_left.get_mut(&current.tiles()[0]).unwrap() -= 1;
                 *tile_left.get_mut(&current.tiles()[1]).unwrap() -= 1;
-                Self::find_common_patterns(tile_left, group_left, pair_left)
-                    .into_iter()
-                    .map(|mut v| {
-                        v.push(current);
-                        v
-                    })
-                    .for_each(|v| ret.push(v));
+                Self::find_common_patterns(
+                    tile_left,
+                    completed,
+                    incompleted + 1,
+                    have_pair,
+                    min_shanten,
+                );
                 *tile_left.get_mut(&current.tiles()[0]).unwrap() += 1;
                 *tile_left.get_mut(&current.tiles()[1]).unwrap() += 1;
             }
         }
 
         // continue with a incompleted AC
-        if group_left > 0 && ks.len() >= 3 {
-            if let Ok(current) = TileBlock::new_incompleted([ks[0], ks[2]]) {
+        if kvs.len() >= 3 {
+            if let Ok(current) = TileBlock::new_incompleted([kvs[0].0, kvs[2].0]) {
                 *tile_left.get_mut(&current.tiles()[0]).unwrap() -= 1;
                 *tile_left.get_mut(&current.tiles()[1]).unwrap() -= 1;
-                Self::find_common_patterns(tile_left, group_left, pair_left)
-                    .into_iter()
-                    .map(|mut v| {
-                        v.push(current);
-                        v
-                    })
-                    .for_each(|v| ret.push(v));
+                Self::find_common_patterns(
+                    tile_left,
+                    completed,
+                    incompleted + 1,
+                    have_pair,
+                    min_shanten,
+                );
                 *tile_left.get_mut(&current.tiles()[0]).unwrap() += 1;
                 *tile_left.get_mut(&current.tiles()[1]).unwrap() += 1;
             }
         }
 
-        // continue without this kind of tile
-        *tile_left.get_mut(&ks[0]).unwrap() -= 1;
-        let current = TileBlock::new_orphan(ks[0]).unwrap();
-        Self::find_common_patterns(tile_left, group_left, pair_left)
-            .into_iter()
-            .map(|mut v| {
-                v.push(current);
-                v
-            })
-            .for_each(|v| ret.push(v));
-        *tile_left.get_mut(&ks[0]).unwrap() += 1;
+        // continue without this tile
+        *tile_left.get_mut(&kvs[0].0).unwrap() -= 1;
+        Self::find_common_patterns(tile_left, completed, incompleted, have_pair, min_shanten);
+        *tile_left.get_mut(&kvs[0].0).unwrap() += 1;
+    }
 
-        ret
+    /// maybe forward shanten
+    fn maybe_effective(&self, draw: Tile) -> bool {
+        self.tiles[..13].iter().any(|&tile| draw.is_related(tile))
     }
 }
 

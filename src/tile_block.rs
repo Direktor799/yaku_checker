@@ -106,29 +106,6 @@ impl TileBlock {
         }
     }
 
-    pub fn income(&self) -> Option<Vec<Tile>> {
-        if let BlockType::Incompleted = self.block_type {
-            Some(if self.tiles[0] == self.tiles[1] {
-                vec![self.tiles[0]]
-            } else if self.tiles[0].number() + 1 == self.tiles[1].number() {
-                let mut v = vec![];
-                if let Some(tile) = self.tiles[0].prev() {
-                    v.push(tile);
-                }
-                if let Some(tile) = self.tiles[1].next() {
-                    v.push(tile);
-                }
-                v
-            } else {
-                vec![self.tiles[0].next().unwrap()]
-            })
-        } else if let BlockType::Orphan = self.block_type {
-            Some(vec![self.tiles[0]])
-        } else {
-            None
-        }
-    }
-
     pub fn len(&self) -> u8 {
         match self.block_type {
             BlockType::Triplet | BlockType::Sequence => 3,
